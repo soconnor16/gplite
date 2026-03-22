@@ -130,4 +130,4 @@ expression = gp.to_str(variable_names=["x"])
 
 ## License
 
-MIT
+GPLv3
