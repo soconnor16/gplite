@@ -1,4 +1,4 @@
-# gpy
+# gplite
 
 A lightweight Gaussian Process regression library built on NumPy and SciPy, originally designed for delta machine learning in computational chemistry.
 
@@ -14,12 +14,12 @@ A lightweight Gaussian Process regression library built on NumPy and SciPy, orig
 ## Installation
 
 ```bash
-pip install git+https://github.com/soconnor16/gpy.git
+pip install gplite
 ```
 or for optional dependencies to run the example files
 
 ```bash
-pip install "gpy[examples]@git+https://github.com/soconnor16/gpy.git"
+pip install "gplite[examples]"
 ```
 
 
@@ -28,7 +28,7 @@ pip install "gpy[examples]@git+https://github.com/soconnor16/gpy.git"
 
 ```python
 import numpy as np
-from gpy import GaussianProcess, RBFKernel
+from gplite import GaussianProcess, RBFKernel
 
 X_train = np.linspace(0, 10, 20).reshape(-1, 1)
 y_train = np.sin(X_train).ravel() + 0.1 * np.random.randn(20)
@@ -44,7 +44,7 @@ y_mean, y_std = gp.predict(X_test, return_std=True)
 ### Matérn Kernel
 
 ```python
-from gpy import MaternKernel
+from gplite import MaternKernel
 
 # Matérn 5/2 (twice differentiable, default)
 kernel = MaternKernel(length_scale=1.0, nu=2.5)
@@ -56,7 +56,7 @@ kernel = MaternKernel(length_scale=1.0, nu=1.5)
 ### Combining Kernels
 
 ```python
-from gpy import RBFKernel, PeriodicKernel, ConstantKernel
+from gplite import RBFKernel, PeriodicKernel, ConstantKernel
 import numpy as np
 
 # additive: smooth trend + periodic pattern
@@ -69,7 +69,7 @@ kernel = ConstantKernel(constant=2.0) * PeriodicKernel(length_scale=1.0, period=
 ### Anisotropic Kernels
 
 ```python
-from gpy import RBFKernel
+from gplite import RBFKernel
 
 # separate length scale per input dimension
 kernel = RBFKernel(length_scale=[1.0, 5.0, 0.5], isotropic=False)
@@ -78,7 +78,7 @@ kernel = RBFKernel(length_scale=[1.0, 5.0, 0.5], isotropic=False)
 ### Active Learning
 
 ```python
-from gpy import ActiveLearner, PeriodicKernel
+from gplite import ActiveLearner, PeriodicKernel
 import numpy as np
 
 X_full = np.linspace(0, 2*np.pi, 100).reshape(-1, 1)
@@ -104,7 +104,7 @@ y_pred = learner.gp.predict(X_full)
 gp.save("model.pkl")
 
 # load it back
-from gpy import GaussianProcess
+from gplite import GaussianProcess
 gp_loaded = GaussianProcess.load("model.pkl")
 y_pred = gp_loaded.predict(X_test)
 ```
@@ -117,10 +117,10 @@ expression = gp.to_str(variable_names=["x"])
 
 ## Modules
 
-- [GaussianProcess](src/gpy/GaussianProcess/) - core GP regression
-- [Kernels](src/gpy/Kernels/) - RBF, Matérn, Periodic, Constant, composites
-- [ActiveLearning](src/gpy/ActiveLearning/) - data sampling strategies
-- [Optimization](src/gpy/Optimization/) - hyperparameter optimization
+- [GaussianProcess](src/gplite/GaussianProcess/) - core GP regression
+- [Kernels](src/gplite/Kernels/) - RBF, Matérn, Periodic, Constant, composites
+- [ActiveLearning](src/gplite/ActiveLearning/) - data sampling strategies
+- [Optimization](src/gplite/Optimization/) - hyperparameter optimization
 
 ## Requirements
 

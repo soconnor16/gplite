@@ -2,7 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gpy import GaussianProcess, MaternKernel, PeriodicKernel, RBFKernel
+from gplite import GaussianProcess, MaternKernel, PeriodicKernel, RBFKernel
 
 
 def target_function(x):

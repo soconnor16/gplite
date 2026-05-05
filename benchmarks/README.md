@@ -1,4 +1,4 @@
-# gpy benchmarks
+# gplite benchmarks
 
 Three separate benchmark scripts for testing compute heavy sections of the package.
 
@@ -10,8 +10,8 @@ Three separate benchmark scripts for testing compute heavy sections of the packa
 
 **Run all (in order):**
 ```bash
-python benchmarks/benchmark_gpy.py
-python benchmarks/benchmark_gpy.py -n 5   # average over 5 runs
+python benchmarks/benchmark_gplite.py
+python benchmarks/benchmark_gplite.py -n 5   # average over 5 runs
 ```
 
 **Run one:**

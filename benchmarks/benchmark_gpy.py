@@ -1,9 +1,9 @@
 """
-Run all gpy benchmarks in sequence: kernels, Gaussian processes,
+Run all gplite benchmarks in sequence: kernels, Gaussian processes,
                                     active learning.
 
-    python benchmarks/benchmark_gpy.py
-    python benchmarks/benchmark_gpy.py -n 5   # average over 5 runs
+    python benchmarks/benchmark_gplite.py
+    python benchmarks/benchmark_gplite.py -n 5   # average over 5 runs
 
 To run a single benchmark:
     python benchmarks/bench_kernels.py [-n N]
@@ -25,7 +25,7 @@ SCRIPTS = [
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run all gpy benchmarks")
+    parser = argparse.ArgumentParser(description="Run all gplite benchmarks")
     parser.add_argument(
         "-n",
         "--num-runs",

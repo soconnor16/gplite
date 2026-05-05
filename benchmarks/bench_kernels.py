@@ -12,7 +12,7 @@ import argparse
 import time
 
 import numpy as np
-from gpy import ConstantKernel, PeriodicKernel, RBFKernel
+from gplite import ConstantKernel, PeriodicKernel, RBFKernel
 
 RNG = np.random.default_rng(0)
 

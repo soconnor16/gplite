@@ -2,7 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gpy import ActiveLearner, RBFKernel
+from gplite import ActiveLearner, RBFKernel
 
 
 def target_function(x):

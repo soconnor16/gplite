@@ -2,6 +2,11 @@
 
 Notable changes to this project will be documented in this file.
 
+## [2.1.3] - 2026-05-04
+
+### Changed
+- **Package Name** Changed 'gpy' to 'gplite' as 'gpy' was taken on pypi
+
 ## [2.1.2] - 2026-03-07
 
 ### Added

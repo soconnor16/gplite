@@ -14,7 +14,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 
 import numpy as np
-from gpy import ConstantKernel, GaussianProcess, PeriodicKernel, RBFKernel
+from gplite import ConstantKernel, GaussianProcess, PeriodicKernel, RBFKernel
 
 RNG = np.random.default_rng(0)
 

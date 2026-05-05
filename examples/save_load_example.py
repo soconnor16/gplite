@@ -2,7 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from gpy import GaussianProcess, RBFKernel
+from gplite import GaussianProcess, RBFKernel
 
 
 def target_function(x):
