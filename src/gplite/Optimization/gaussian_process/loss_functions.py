@@ -22,9 +22,10 @@ where α = K⁻¹ @ y.
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy import linalg
+
 from gplite._utils._computation import compute_lower_cholesky_decomposition
 from gplite._utils._types import Arrf64
-from scipy import linalg
 
 if TYPE_CHECKING:
     from gplite.GaussianProcess.gaussian_process import GaussianProcess

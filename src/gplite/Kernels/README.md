@@ -62,7 +62,6 @@ kernel = MaternKernel(length_scale=1.0, nu=1.5)
 kernel = MaternKernel(length_scale=[1.0, 2.0], nu=2.5, isotropic=False)
 ```
 
-**When to use:** Physical processes where infinite smoothness (RBF) is unrealistic. Matérn 5/2 is a popular default in many GP applications.
 
 ### Periodic Kernel
 

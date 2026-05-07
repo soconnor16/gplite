@@ -20,6 +20,7 @@ seasonal patterns, cyclical phenomena, or any repeating structures.
 """
 
 import numpy as np
+
 from gplite._utils._data import (
     distribute_anisotropic_hyperparameters,
     expand_kernel_bounds,

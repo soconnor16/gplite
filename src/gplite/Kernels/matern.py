@@ -31,6 +31,7 @@ with finite differentiability.
 """
 
 import numpy as np
+
 from gplite._utils._computation import compute_square_euclidean_distance
 from gplite._utils._constants import VALID_NU
 from gplite._utils._data import expand_kernel_bounds
@@ -53,7 +54,7 @@ class MaternKernel(Kernel):
     K_{3/2}(x, x') = (1 + √3 r) exp(-√3 r)
     K_{5/2}(x, x') = (1 + √5 r + 5r²/3) exp(-√5 r)
 
-    where r is the (optionally ARD-scaled) Euclidean distance.
+    where r is the Euclidean distance between input points.
     """
 
     def __init__(

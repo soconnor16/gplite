@@ -5,8 +5,9 @@ Selection functions for active learning point acquisition strategies.
 from typing import TYPE_CHECKING
 
 import numpy as np
-from gplite._utils._types import Arri64
 from scipy.stats import norm
+
+from gplite._utils._types import Arri64
 
 if TYPE_CHECKING:
     from gplite.ActiveLearning.active_learning import ActiveLearner

@@ -28,6 +28,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+
 from gplite._utils._computation import compute_rmse_across_dataset
 from gplite._utils._errors import ValidationError
 from gplite._utils._types import Arrf64, Arri64, f64
@@ -95,12 +96,13 @@ class ActiveLearner:
             - kernel (Kernel): Kernel instance for the underlying GP model.
             - x_full (Arrf64): Full dataset input features of shape (n, d).
             - y_full (Arrf64): Full dataset target values of shape (n,).
-            - max_points (int | None): Maximum training points to use. Defaults
-                                       to full dataset size.
-            - rmse_threshold (f64): RMSE target for stopping criterion. Defaults
-                                    to 0.5.
+            - max_points (int | None): Maximum training points to use.
+                                       Defaults to full dataset size.
+            - rmse_threshold (f64): RMSE target for stopping criterion.
+                                    Defaults to 0.5.
             - optimize_interval (int | None): Iterations between hyperparameter
-                                              optimization. None disables.
+                                              optimization. A None value
+                                              disables optimization.
 
         Raises:
             ValidationError: If kernel is invalid or data arrays are
@@ -230,7 +232,7 @@ class ActiveLearner:
                                        'random', 'uncertainty', 'mae'.
             - batch_size (int): Points to add per iteration. Defaults to 1.
             - final_optimization_method (str): Objective for final optimization.
-                                               Defaults to 'rmse'.
+                                               Options: 'mae', 'rmse'
             - update (bool): Whether to print progress updates. Defaults to
                              False.
             - log (bool): Whether to log status updates. Works like the

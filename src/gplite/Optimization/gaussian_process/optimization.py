@@ -18,12 +18,13 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.optimize import minimize
+from scipy.stats import qmc
+
 from gplite._utils._constants import LOCAL_MAXITER, N_REFINE
 from gplite.Optimization.gaussian_process.loss_functions import (
     negative_log_marginal_likelihood,
 )
-from scipy.optimize import minimize
-from scipy.stats import qmc
 
 if TYPE_CHECKING:
     from gplite.GaussianProcess.gaussian_process import GaussianProcess
@@ -186,7 +187,7 @@ def optimize_hyperparameters(
             continue
 
     # set final best hyperparameters
-    gp.kernel.set_params(best_theta[:-1])
+    gp.kernel.set_params(best_theta[:-1], validate=False)
     gp._noise = best_theta[-1]
 
     gp._fit_without_optimization()

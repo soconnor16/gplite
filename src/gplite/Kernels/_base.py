@@ -20,6 +20,7 @@ data and is central to GP predictions:
 from abc import ABC, abstractmethod
 
 import numpy as np
+
 from gplite._utils._types import Arrf64, f64
 from gplite._utils._validation import validate_input_arrays
 
@@ -58,7 +59,6 @@ class Kernel(ABC):
         """
 
     # ----------------------------- PUBLIC METHODS --------------------------- #
-
     def compute(self, x1: Arrf64, x2: Arrf64) -> Arrf64:
         """
         Method to compute a kernel's similarity matrix between two given input

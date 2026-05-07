@@ -22,6 +22,7 @@ is the most commonly used kernel in Gaussian Process regression.
 """
 
 import numpy as np
+
 from gplite._utils._computation import compute_square_euclidean_distance
 from gplite._utils._data import expand_kernel_bounds
 from gplite._utils._types import Arrf64, f64

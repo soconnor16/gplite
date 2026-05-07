@@ -25,6 +25,8 @@ import warnings
 from pathlib import Path
 
 import numpy as np
+from scipy import linalg
+
 from gplite._utils._computation import compute_lower_cholesky_decomposition
 from gplite._utils._data import (
     normalize_input_data,
@@ -41,7 +43,6 @@ from gplite.Kernels._base import Kernel
 from gplite.Optimization.gaussian_process.optimization import (
     optimize_hyperparameters,
 )
-from scipy import linalg
 
 
 class GaussianProcess:
@@ -51,7 +52,9 @@ class GaussianProcess:
 
     Attributes:
         - kernel (Kernel): The kernel function used to compute covariance.
-        - x_train (Arrf64): Training input features after normalization.
+        - x_train (Arrf64): Training input features after normalization if
+                            input normalization was set to true during
+                            initialization.
         - y_train (Arrf64): Training target values after normalization.
         - alpha (Arrf64): Weights computed during fitting for predictions.
     """
@@ -106,11 +109,13 @@ class GaussianProcess:
         return
 
     def optimize_hyperparameters(
-        self, objective: str, num_restarts: int = 10
+        self, objective: str = "lml", num_restarts: int = 10
     ) -> None:
         """
-        Optimizes the kernel hyperparameters using the specified objective
-        function.
+        Optimizes the kernel hyperparameters using log-marginal-likelihood. The
+        option to pass an objective function is there for flexibility - if it
+        becomes useful to have another form of optimization for Gaussian
+        Processes in the future - but the only current valid value is "lml".
 
         Args:
             - objective (str): The objective function to minimize. Options
@@ -197,7 +202,8 @@ class GaussianProcess:
 
         Returns:
             Arrf64 | tuple[Arrf64, ...]: Predicted mean values, and optionally
-                standard deviation and/or covariance matrix depending on flags.
+                                         standard deviation and/or covariance
+                                         matrix.
 
         Raises:
             RuntimeError: If the model has not been fitted before prediction.

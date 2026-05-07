@@ -51,11 +51,6 @@ gp.fit(X, y)
 gp.optimize_hyperparameters(objective="lml", num_restarts=5)
 ```
 
-### Available Objectives
-
-| Objective | Description | Gradient |
-|-----------|-------------|----------|
-| `"lml"` | Log marginal likelihood | ✓ |
 
 ## Active Learning Optimization
 
@@ -90,28 +85,8 @@ Optimization/
     └── loss_functions.py  # RMSE, MAE
 ```
 
-## Technical Details
 
-### Starting Point Generation
-
-Latin Hypercube Sampling in log-space ensures good coverage:
-
-```python
-# For bounds (1e-6, 1e2):
-log_low, log_high = log10(1e-6), log10(1e2)  # = -6, 2
-log_sample = uniform(log_low, log_high)       # = -2 (example)
-param = 10 ** log_sample                      # = 0.01
-```
-
-### Optimization Parameters (in _utils/_constants.py)
-
-```python
-GLOBAL_MAXITER = 30    # Screening phase iterations
-LOCAL_MAXITER = 500    # Refinement phase iterations
-N_REFINE = 2           # Candidates to refine
-```
-
-### What Gets Optimized
+## What Gets Optimized
 
 - All kernel hyperparameters (length scales, periods, constants)
 - Noise variance (jitter added to diagonal for numerical stability)

@@ -2,6 +2,7 @@ import warnings
 from typing import Any
 
 import numpy as np
+
 from gplite._utils._errors import ValidationError
 from gplite._utils._types import Arrf64, f64
 
@@ -11,7 +12,7 @@ def validate_numeric_value(
     value: Any, name: str, allow_nonpositive: bool
 ) -> f64:
     """
-    Function to validate individual numeric values and reject others.
+    Function to validate individual numeric values.
 
     Args:
         - value: Any
@@ -180,7 +181,7 @@ def validate_anisotropic_hyperparameter_shape(
     input data has features.
 
     Args:
-        - x1 (Arrf64): Input data array whose shape is used for reference
+        - x1 (Arrf64): Input data array whose shape is used for reference.
         - param (Arrf64): Anisotropic hyperparameter whose shape is being
                           validated.
 

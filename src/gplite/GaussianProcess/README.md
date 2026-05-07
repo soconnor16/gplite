@@ -56,10 +56,10 @@ By default, input features are normalized to zero mean and unit variance:
 
 ```python
 # automatic normalization (default)
-gp = GaussianProcess(kernel, normalize_x=True)
+gp = GaussianProcess(kernel, normalize_inputs=True)
 
 # disable if you normalize manually
-gp = GaussianProcess(kernel, normalize_x=False)
+gp = GaussianProcess(kernel, normalize_inputs=False)
 ```
 
 Target values are always normalized internally.
@@ -95,7 +95,7 @@ This is useful for exporting to external tools like OpenMM custom forces.
 
 **Parameters:**
 - `kernel` (Kernel): Kernel instance defining the covariance function
-- `normalize_x` (bool): Whether to normalize input features. Default: `True`
+- `normalize_inputs` (bool): Whether to normalize input features. Default: `True`
 
 **Methods:**
 - `fit(x, y, optimize=False, objective="lml")`: Fit the GP to training data

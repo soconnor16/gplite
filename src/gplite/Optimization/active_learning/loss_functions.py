@@ -18,6 +18,7 @@ MAE (Mean Absolute Error):
 from typing import TYPE_CHECKING
 
 import numpy as np
+
 from gplite._utils._types import f64
 
 if TYPE_CHECKING:

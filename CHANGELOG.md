@@ -2,6 +2,10 @@
 
 Notable changes to this project will be documented in this file.
 
+## [2.1.4] - TBA
+### Changed
+- **Cleanup** Format files consistently with ruff, cleanup documentation.
+
 ## [2.1.3] - 2026-05-04
 
 ### Changed

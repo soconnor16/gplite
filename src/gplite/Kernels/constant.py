@@ -18,6 +18,7 @@ For example, c * RBF(l) scales the RBF kernel's output magnitude.
 """
 
 import numpy as np
+
 from gplite._utils._types import Arrf64, f64
 from gplite._utils._validation import (
     validate_isotropic_hyperparameter,

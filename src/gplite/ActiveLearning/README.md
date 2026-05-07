@@ -76,12 +76,7 @@ learner.learn(learning_strategy="mae")
 
 ### Expected Improvement — Maximize (`"ei_max"`)
 
-Selects points with the highest expected improvement over the current best (maximum) observed value. Balances exploitation (high predicted mean) with exploration (high uncertainty).
-
-```
-EI(x) = (μ(x) - f_best) * Φ(Z) + σ(x) * φ(Z)
-where Z = (μ(x) - f_best) / σ(x), f_best = max(y_train)
-```
+Selects points with the highest expected improvement over the current best (maximum) observed value.
 
 ```python
 learner.learn(learning_strategy="ei_max")
@@ -92,11 +87,6 @@ learner.learn(learning_strategy="ei_max")
 ### Expected Improvement — Minimize (`"ei_min"`)
 
 Selects points with the highest expected improvement below the current best (minimum) observed value.
-
-```
-EI(x) = (f_best - μ(x)) * Φ(Z) + σ(x) * φ(Z)
-where Z = (f_best - μ(x)) / σ(x), f_best = min(y_train)
-```
 
 ```python
 learner.learn(learning_strategy="ei_min")

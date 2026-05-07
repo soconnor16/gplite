@@ -25,6 +25,7 @@ Product Kernels (K₁ * K₂):
 """
 
 import numpy as np
+
 from gplite._utils._errors import ValidationError
 from gplite._utils._types import Arrf64, f64
 from gplite.Kernels._base import Kernel

@@ -1,11 +1,11 @@
 import numpy as np
+
 from gplite._utils._constants import EPSILON
 from gplite._utils._errors import ValidationError
 from gplite._utils._types import Arrf64, f64
 
+
 ### Kernel Data Handling ###
-
-
 def distribute_anisotropic_hyperparameters(
     params: Arrf64, num_anisotropic_kernel_params: int
 ) -> list[Arrf64]:
@@ -14,16 +14,16 @@ def distribute_anisotropic_hyperparameters(
     anisotropic kernel parameters (e.g., separate length scales per dimension).
 
     Args:
-        - params (Arrf64): Flat array of hyperparameters to distribute
+        - params (Arrf64): Flat array of hyperparameters to distribute.
         - num_anisotropic_kernel_params (int): Number of anisotropic parameter
-                                               groups to split into
+                                               groups to split into.
 
     Returns:
-        list[Arrf64]: List of parameter arrays, one per anisotropic group
+        list[Arrf64]: List of parameter arrays, one per anisotropic group.
 
     Raises:
         ValidationError: If params cannot be evenly split into the specified
-            number of groups
+            number of groups.
     """
 
     try:
@@ -51,18 +51,18 @@ def expand_kernel_bounds(
     for that parameter type.
 
     Args:
-        - params (Arrf64): Hyperparameter array defining total size
+        - params (Arrf64): Hyperparameter array defining total size.
         - bounds (list[tuple[f64, f64]]): Bounds for each anisotropic parameter
-                                          type
+                                          type.
         - num_anisotropic_kernel_params (int): Number of distinct anisotropic
-                                               parameter types
+                                               parameter types.
 
     Returns:
-        list[tuple[f64, f64]]: Expanded bounds list matching params.size
+        list[tuple[f64, f64]]: Expanded bounds list matching params.size.
 
     Raises:
         ValueError: If params.size is not evenly divisible by
-                    num_anisotropic_kernel_params
+                    num_anisotropic_kernel_params.
     """
     if params.size % num_anisotropic_kernel_params != 0:
         err_msg = (
@@ -86,14 +86,12 @@ def expand_kernel_bounds(
 
 
 ### Gaussian Process Data Handling ###
-
-
 def normalize_input_data(arr: Arrf64) -> tuple[Arrf64, Arrf64, Arrf64]:
     """
     Normalizes input features to zero mean and unit variance (standardization).
 
     Args:
-        - arr (Arrf64): Input array of shape (n, d) to normalize
+        - arr (Arrf64): Input array of shape (n, d) to normalize.
 
     Returns:
         tuple[Arrf64, Arrf64, Arrf64]: Normalized array, mean values, and
@@ -116,7 +114,7 @@ def normalize_target_data(arr: Arrf64) -> tuple[Arrf64, f64, f64]:
     Normalizes target values to zero mean and unit variance (standardization).
 
     Args:
-        - arr (Arrf64): Target array of shape (n,) to normalize
+        - arr (Arrf64): Target array of shape (n,) to normalize.
 
     Returns:
         tuple[Arrf64, f64, f64]: Normalized array, mean value, and standard

@@ -19,13 +19,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import scipy
+from scipy.optimize import minimize
+from scipy.stats import qmc
+
 from gplite._utils._constants import GLOBAL_MAXITER, LOCAL_MAXITER, N_REFINE
 from gplite.Optimization.active_learning.loss_functions import (
     mean_absolute_error,
     root_mean_squared_error,
 )
-from scipy.optimize import minimize
-from scipy.stats import qmc
 
 if TYPE_CHECKING:
     from gplite.ActiveLearning.active_learning import ActiveLearner
