@@ -2,7 +2,7 @@
 
 Notable changes to this project will be documented in this file.
 
-## [3.0.0] - TBD
+## [3.0.0] - 2026-06-09
 
 ### Added
 - **Custom Loss and Selection Functions** Added support for custom loss functions
