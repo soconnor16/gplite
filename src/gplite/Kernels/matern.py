@@ -30,13 +30,15 @@ alternative to the RBF kernel, particularly for physical processes
 with finite differentiability.
 """
 
+from typing import cast
+
 import numpy as np
 
 from gplite._utils._computation import compute_square_euclidean_distance
 from gplite._utils._constants import VALID_NU
 from gplite._utils._data import expand_kernel_bounds
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite._utils._validation import (
     validate_anisotropic_hyperparameter,
     validate_anisotropic_hyperparameter_shape,
@@ -57,9 +59,13 @@ class MaternKernel(Kernel):
     where r is the Euclidean distance between input points.
     """
 
+    length_scale: Arrf64
+    nu: float
+    isotropic: bool
+
     def __init__(
         self,
-        length_scale: Arrf64,
+        length_scale: NumericArray | NumericValue,
         nu: float = 2.5,
         isotropic: bool = True,
     ) -> None:
@@ -68,13 +74,13 @@ class MaternKernel(Kernel):
         smoothness parameter.
 
         Args:
-            - length_scale (Arrf64): Length scale hyperparameter controlling
-                                     correlation distance. Scalar for isotropic,
-                                     array for anisotropic (one per dimension).
-            - nu (float): Smoothness parameter. Must be 1.5 or 2.5.
-                          Defaults to 2.5.
-            - isotropic (bool): If True, uses single length scale for all
-                                dimensions. Defaults to True.
+            - length_scale: NumericArray | NumericValue
+                - Length scale hyperparameter controlling correlation distance.
+                  Scalar for isotropic, array for anisotropic.
+            - nu: float
+                - Smoothness parameter. Must be 1.5 or 2.5. Defaults to 2.5.
+            - isotropic: bool
+                - If True, uses single length scale for all dimensions. Defaults to True.
 
         Raises:
             ValidationError: If length_scale contains invalid values or nu
@@ -123,8 +129,10 @@ class MaternKernel(Kernel):
         Computes the Matérn kernel matrix between two input arrays.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             Arrf64: Kernel matrix of shape (n, m).
@@ -149,8 +157,10 @@ class MaternKernel(Kernel):
         length scale.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             tuple[Arrf64, ...]: Tuple containing the length scale gradient
@@ -208,8 +218,10 @@ class MaternKernel(Kernel):
         reusing intermediate calculations.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix and tuple
@@ -273,12 +285,21 @@ class MaternKernel(Kernel):
         """
         return self.length_scale
 
-    def set_params(self, params: Arrf64, validate: bool = True) -> None:
+    def set_params(
+        self, params: NumericArray | NumericValue, _validate: bool = True
+    ) -> None:
         """
         Sets new length scale values for the kernel.
 
         Args:
-            - params (Arrf64): New length scale values as an array.
+            - params: NumericArray | NumericValue
+                - New length scale values as an array.
+            - _validate: bool
+                - Whether to validate the hyperparameters before setting them.
+                    This is intended to be used for internal usage such as
+                    optimization loops where skipping the small overhead from
+                    validation saves a lot of time. If _validate is false, it is
+                    assumed you know what you are doing. Defaults to True.
 
         Raises:
             ValidationError: If params contains invalid values or wrong size
@@ -288,7 +309,7 @@ class MaternKernel(Kernel):
             UserWarning: If anisotropic params have different length than
                          current hyperparameters.
         """
-        if validate:
+        if _validate:
             expected_num_hyperparameters = len(self.length_scale)
             params = validate_set_params(
                 params,
@@ -297,7 +318,7 @@ class MaternKernel(Kernel):
                 expected_num_hyperparameters,
             )
 
-        self.length_scale = params
+        self.length_scale = cast("Arrf64", params)
 
     def _to_str(
         self, variable_names: list[str], alpha: f64, training_point: Arrf64
@@ -306,9 +327,12 @@ class MaternKernel(Kernel):
         Creates a string representation of the Matérn kernel expression.
 
         Args:
-            - variable_names (list[str]): Names of input variables.
-            - alpha (f64): Weight coefficient.
-            - training_point (Arrf64): Training point to center expression on.
+            - variable_names: list[str]
+                -Names of input variables.
+            - alpha: f64
+                - Weight coefficient.
+            - training_point: Arrf64
+                - Training point to center expression on.
 
         Returns:
             str: Mathematical expression string for the kernel.
@@ -347,7 +371,8 @@ class MaternKernel(Kernel):
         for all x since the distance r is zero.
 
         Args:
-            - x (Arrf64): Input array of shape (n, d).
+            - x: Arrf64
+                - Input array of shape (n, d).
 
         Returns:
             Arrf64: Array of ones with shape (n,).
@@ -372,7 +397,8 @@ class MaternKernel(Kernel):
         Validates that anisotropic length scales match input dimensionality.
 
         Args:
-            - x (Arrf64): Input data for shape reference.
+            - x: Arrf64
+                - Input data for shape reference.
 
         Raises:
             ValidationError: If length scale size doesn't match number of

@@ -18,11 +18,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
-import scipy
+from scipy.linalg import LinAlgError
 from scipy.optimize import minimize
 from scipy.stats import qmc
 
 from gplite._utils._constants import GLOBAL_MAXITER, LOCAL_MAXITER, N_REFINE
+from gplite._utils._types import ActiveLearningLossFunction, Arrf64
 from gplite.Optimization.active_learning.loss_functions import (
     mean_absolute_error,
     root_mean_squared_error,
@@ -40,8 +41,77 @@ LOSS_FUNCTIONS: dict[str, Callable] = {
 }
 
 
+def _get_objective_wrapper(
+    learner: "ActiveLearner",
+    objective_func: str | ActiveLearningLossFunction | None,
+) -> Callable | None:
+    """
+    Validates objective functions and returns SciPy-compatible wrappers for the
+    main optimization loop.
+
+    Args:
+        - learner: ActiveLearner
+            - The ActiveLearner instance whose hyperparameters are being
+              optimized.
+        - objective_func: str | ActiveLearningLossFunction | None
+            - The objective function used to calculate the loss value to be
+              minimized during optimization.
+
+    Returns:
+        Callable | None: The loss function or None if final optimization is to
+                         be skipped.
+    """
+    # handle "None" (skip optimization)
+    if objective_func is None or (
+        isinstance(objective_func, str)
+        and objective_func.lower() in ["none", "no"]
+    ):
+        return None
+
+    # handle Custom Callables
+    if callable(objective_func):
+
+        def custom_wrapper(theta: Arrf64) -> float:
+            try:
+                learner.gp.kernel.set_params(theta[:-1], _validate=False)
+                learner.gp._noise = theta[-1]
+                learner.gp._fit_without_optimization()
+                return float(objective_func(learner))
+            except (LinAlgError, ValueError):
+                return float(np.inf)
+
+        return custom_wrapper
+
+    # handle Built-in Strings
+    if not isinstance(objective_func, str):
+        raise ValueError(
+            "Error: 'objective_func' must be a string, Callable, or None."
+        )
+
+    obj_lower = objective_func.lower()
+    if obj_lower not in LOSS_FUNCTIONS:
+        err_msg = (
+            f"Error: '{objective_func}' is not an available objective function."
+            f" Available functions are: {list(LOSS_FUNCTIONS.keys())}."
+        )
+        raise ValueError(err_msg)
+
+    loss_fn = LOSS_FUNCTIONS[obj_lower]
+
+    def builtin_wrapper(theta: Arrf64) -> float:
+        try:
+            learner.gp.kernel.set_params(theta[:-1], _validate=False)
+            learner.gp._noise = theta[-1]
+            learner.gp._fit_without_optimization()
+            return float(loss_fn(learner))
+        except (LinAlgError, ValueError):
+            return float(np.inf)
+
+    return builtin_wrapper
+
+
 def _generate_starting_points(
-    initial_theta: np.ndarray,
+    initial_theta: Arrf64,
     bounds: list[tuple[float, float]],
     n_restarts: int,
 ) -> list[np.ndarray]:
@@ -50,9 +120,12 @@ def _generate_starting_points(
     in log-space.
 
     Args:
-        - initial_theta (np.ndarray): Current hyperparameter values.
-        - bounds (list[tuple[float, float]]): Bounds for each hyperparameter.
-        - n_restarts (int): Number of random starting points to generate.
+        - initial_theta: Arrf64
+            - Current hyperparameter values.
+        - bounds: list[tuple[float, float]]
+            - Bounds for each hyperparameter.
+        - n_restarts: int
+            - Number of random starting points to generate.
 
     Returns:
         list[np.ndarray]: List of starting points including initial_theta.
@@ -76,7 +149,9 @@ def _generate_starting_points(
 
 
 def optimize_hyperparameters(
-    learner: "ActiveLearner", objective_func: str, n_restarts: int = 0
+    learner: "ActiveLearner",
+    objective_func: str | ActiveLearningLossFunction | None,
+    n_restarts: int = 0,
 ) -> None:
     """
     Optimizes active learner hyperparameters using a hybrid two-phase
@@ -89,40 +164,29 @@ def optimize_hyperparameters(
     thorough optimization to find the best solution.
 
     Args:
-        - learner (ActiveLearner): The active learner to optimize.
-        - objective_func (str): Loss function to minimize. Options: 'rmse',
-                                'mae', 'none'/'no' (skip optimization).
-        - n_restarts (int): Number of random restarts for global screening.
-                            Defaults to 0 (only optimize from current params).
+        - learner: ActiveLearner
+                - The active learner to optimize.
+        - objective_func: str | ActiveLearningLossFunction | None
+            - Loss function to minimize. Options: 'rmse', 'mae', 'none'/'no'
+              (skip optimization).
+        - n_restarts: int
+            - Number of random restarts for global screening. Defaults to 0
+              (only optimize from current params).
 
     Raises:
         ValueError: If objective_func is not a recognized loss function.
     """
-    if objective_func.lower() in ["none", "no"]:
+    func_wrapper = _get_objective_wrapper(learner, objective_func)
+
+    if func_wrapper is None:
         return
 
-    if objective_func.lower() not in LOSS_FUNCTIONS:
-        err_msg = (
-            f"Error: '{objective_func}' is not an available objective function."
-            f" Available functions are: {list(LOSS_FUNCTIONS.keys())}"
-        )
-        raise ValueError(err_msg)
-
-    loss_fn = LOSS_FUNCTIONS[objective_func.lower()]
-
     initial_kernel_params = learner.gp.kernel.get_params()
-    initial_noise = np.array([learner.gp._noise])
+    initial_noise = np.array([learner.gp._noise], dtype=np.float64)
     initial_theta = np.concatenate([initial_kernel_params, initial_noise])
 
     noise_bounds = [(1e-6, 1e1)]
     bounds = learner.gp.kernel._get_expanded_bounds() + noise_bounds
-
-    # function wrapper for scipy optimizer
-    def func_wrapper(theta):
-        learner.gp.kernel.set_params(theta[:-1], validate=False)
-        learner.gp._noise = theta[-1]
-        learner.gp._fit_without_optimization()
-        return loss_fn(learner)
 
     # generate all starting points
     starting_points = _generate_starting_points(
@@ -144,12 +208,12 @@ def optimize_hyperparameters(
             )
             screening_results.append((result.fun, result.x))
 
-        except (scipy.linalg.LinAlgError, ValueError):
+        except (LinAlgError, ValueError):
             continue
 
     # if all screening runs failed, fall back to initial parameters
     if not screening_results:
-        learner.gp.kernel.set_params(initial_theta[:-1], validate=False)
+        learner.gp.kernel.set_params(initial_theta[:-1], _validate=False)
         learner.gp._noise = initial_theta[-1]
         learner.gp._fit_without_optimization()
         return
@@ -162,7 +226,7 @@ def optimize_hyperparameters(
     # phase 2: local refinement
     # more thoroughly optimize the most promising candidates
     best_theta = top_candidates[0]
-    best_loss = np.inf
+    best_loss = screening_results[0][0]
 
     for candidate_theta in top_candidates:
         try:
@@ -178,11 +242,11 @@ def optimize_hyperparameters(
                 best_loss = result.fun
                 best_theta = result.x
 
-        except (scipy.linalg.LinAlgError, ValueError):
+        except (LinAlgError, ValueError):
             continue
 
     # set final best hyperparameters
-    learner.gp.kernel.set_params(best_theta[:-1], validate=False)
+    learner.gp.kernel.set_params(best_theta[:-1], _validate=False)
     learner.gp._noise = best_theta[-1]
 
     learner.gp._fit_without_optimization()

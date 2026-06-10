@@ -1,22 +1,26 @@
-"""Compare RBF, Matérn, and Periodic kernels on the same data."""
+"""
+Compares RBF, Matérn, and Periodic kernels on the same data to demonstrate the
+importance of proper Kernel selection during training.
+"""
 
 import matplotlib.pyplot as plt
 import numpy as np
 from gplite import GaussianProcess, MaternKernel, PeriodicKernel, RBFKernel
+from numpy.typing import NDArray
 
 
-def target_function(x):
+def target_function(x: NDArray) -> NDArray:
     """Synthetic target function to fit to."""
-    return np.sin(x) + 0.5 * np.sin(3 * x) + 0.3 * np.exp(-0.1 * (x - 5) ** 2)
+    return 0.5 * np.sin(3 * x) + 0.8 * np.exp(-0.1 * (x - 10) ** 2)
 
 
 # generate training data
-rng = np.random.default_rng()
-x_train = np.sort(rng.uniform(0, 10, 25)).reshape(-1, 1)
+rng = np.random.default_rng(0)
+x_train = np.sort(rng.uniform(-5, 5, 25)).reshape(-1, 1)
 y_train = target_function(x_train).ravel() + 0.05 * rng.standard_normal(25)
 
 # test points for plotting
-x_test = np.linspace(0, 10, 300).reshape(-1, 1)
+x_test = np.linspace(-5, 5, 300).reshape(-1, 1)
 y_true = target_function(x_test).ravel()
 
 kernels = [

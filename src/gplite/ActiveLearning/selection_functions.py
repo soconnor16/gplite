@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.stats import norm
 
+from gplite._utils._constants import EPSILON
 from gplite._utils._types import Arri64
 
 if TYPE_CHECKING:
@@ -18,9 +19,10 @@ def random_selection(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     Randomly selects points from the remaining pool for training.
 
     Args:
-        - learner (ActiveLearner): The active learner instance containing
-                                   the data pool.
-        - n_points (int): Number of points to select. Defaults to 1.
+        - learner: ActiveLearner
+            - The active learner instance with fitted GP.
+        - n_points: int
+            - Number of points to select. Defaults to 1.
 
     Returns:
         Arri64: Indices of randomly selected points from the full dataset.
@@ -48,8 +50,10 @@ def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     helping to explore regions with limited training data coverage.
 
     Args:
-        - learner (ActiveLearner): The active learner instance with fitted GP.
-        - n_points (int): Number of points to select. Defaults to 1.
+        - learner: ActiveLearner
+            - The active learner instance with fitted GP.
+        - n_points: int
+            - Number of points to select. Defaults to 1.
 
     Returns:
         Arri64: Indices of points with highest uncertainty, sorted by
@@ -59,11 +63,14 @@ def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     if len(learner.remaining_indices) == 0:
         return np.array([], dtype=np.int64)
 
-    _, var = learner.gp.predict(
+    # we can use the std instead of the variance because the std is the
+    # square root of the variance, and sqrt(x) is a monotonically increasing
+    # function
+    _, std = learner.gp.predict(
         learner.x_full[learner.remaining_indices], return_std=True
     )
 
-    flat_var = var.flatten()
+    flat_var = std.flatten()
     sorted_indices = np.argsort(flat_var)
     top_indices = sorted_indices[-n_points:][::-1]
 
@@ -84,8 +91,10 @@ def expected_improvement_max(
     where Z = (μ(x) - f_best) / σ(x), f_best = max(y_train)
 
     Args:
-        - learner (ActiveLearner): The active learner instance with fitted GP.
-        - n_points (int): Number of points to select. Defaults to 1.
+        - learner: ActiveLearner
+            - The active learner instance with fitted GP.
+        - n_points: int
+            - Number of points to select. Defaults to 1.
 
     Returns:
         Arri64: Indices of points with highest expected improvement, sorted by
@@ -101,7 +110,7 @@ def expected_improvement_max(
     target_max = np.max(learner.y_train)
 
     expected_improvement = np.zeros_like(mu)
-    mask = sigma > 0
+    mask = sigma > EPSILON
     z = (mu[mask] - target_max) / sigma[mask]
     expected_improvement[mask] = (mu[mask] - target_max) * norm.cdf(z) + sigma[
         mask
@@ -127,8 +136,10 @@ def expected_improvement_min(
     where Z = (f_best - μ(x)) / σ(x), f_best = min(y_train)
 
     Args:
-        - learner (ActiveLearner): The active learner instance with fitted GP.
-        - n_points (int): Number of points to select. Defaults to 1.
+        - learner: ActiveLearner
+            - The active learner instance with fitted GP.
+        - n_points: int
+            - Number of points to select. Defaults to 1.
 
     Returns:
         Arri64: Indices of points with highest expected improvement, sorted by
@@ -144,7 +155,7 @@ def expected_improvement_min(
     target_min = np.min(learner.y_train)
 
     expected_improvement = np.zeros_like(mu)
-    mask = sigma > 0
+    mask = sigma > EPSILON
     z = (target_min - mu[mask]) / sigma[mask]
     expected_improvement[mask] = (target_min - mu[mask]) * norm.cdf(z) + sigma[
         mask
@@ -164,8 +175,10 @@ def max_absolute_error(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     largest errors, focusing learning on the most challenging regions.
 
     Args:
-        - learner (ActiveLearner): The active learner instance with fitted GP.
-        - n_points (int): Number of points to select. Defaults to 1.
+        - learner: ActiveLearner
+            - The active learner instance with fitted GP.
+        - n_points: int
+            - Number of points to select. Defaults to 1.
 
     Returns:
         Arri64: Indices of points with highest absolute error, sorted by

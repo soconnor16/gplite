@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite._utils._validation import validate_input_arrays
 
 
@@ -33,9 +33,6 @@ class Kernel(ABC):
         Method in which kernels define their hyperparameters and the order in
         which they are expected during initialization, or when new
         hyperparameters are set for an existing kernel.
-
-        Args:
-            - None
 
         Returns:
             - list[str]: List of the names of the hyperparameters in a given
@@ -50,16 +47,13 @@ class Kernel(ABC):
         during optimization. The order of the tuples matches the order
         of the hyperparameters in the "hyperparameters" method.
 
-        Args:
-            - None
-
         Returns:
             - list[tuple[float, float]]: List of the bounds of each of a
                                          kernel's hyperparameters.
         """
 
     # ----------------------------- PUBLIC METHODS --------------------------- #
-    def compute(self, x1: Arrf64, x2: Arrf64) -> Arrf64:
+    def compute(self, x1: NumericArray, x2: NumericArray) -> Arrf64:
         """
         Method to compute a kernel's similarity matrix between two given input
         arrays.
@@ -77,10 +71,10 @@ class Kernel(ABC):
 
 
         Args:
-            - x1: Arrf64
+            - x1: NumericArray
                 - First array of points used to compute the kernel matrix.
 
-            - x2: Arrf64
+            - x2: NumericArray
                 - Second array of points used to compute the kernel matrix.
 
 
@@ -97,7 +91,9 @@ class Kernel(ABC):
 
         return self._compute(x1, x2)
 
-    def gradient(self, x1: Arrf64, x2: Arrf64) -> tuple[Arrf64, ...]:
+    def gradient(
+        self, x1: NumericArray, x2: NumericArray
+    ) -> tuple[Arrf64, ...]:
         """
         Method to compute a kernel's gradient with respect to each of its
         hyperparameters with input arrays x1 and x2.
@@ -106,10 +102,10 @@ class Kernel(ABC):
         optimization.
 
         Args:
-            - x1: Arrf64
+            - x1: NumericArray
                 - First array of points used to compute the kernel gradient.
 
-            - x2: Arrf64
+            - x2: NumericArray
                 - Second array of points used to compute the kernel gradient.
 
 
@@ -128,15 +124,17 @@ class Kernel(ABC):
         return self._gradient(x1, x2)
 
     def compute_with_gradient(
-        self, x1: Arrf64, x2: Arrf64
+        self, x1: NumericArray, x2: NumericArray
     ) -> tuple[Arrf64, tuple[Arrf64, ...]]:
         """
         Computes the kernel matrix and its gradients with respect to
         hyperparameters in a single call for efficiency.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: NumericArray
+                - First input array of shape (n, d).
+            - x2: NumericArray
+                - Second input array of shape (m, d).
 
         Returns:
             tuple[Arrf64, tuple[Arrf64, ...]]: Tuple containing the kernel
@@ -159,24 +157,30 @@ class Kernel(ABC):
         Method to obtain the current hyperparameters of the kernel in the order
         defined by the "hyperparameters" method.
 
-        Args:
-            - None
-
         Returns:
-            - list[float]: Current kernel hyperparameters as a list of Python
-                           floats
+            - Arrf64: Current kernel hyperparameters as a NumPy array of f64
+                      values.
         """
 
     @abstractmethod
-    def set_params(self, params: Arrf64, validate: bool) -> None:
+    def set_params(
+        self, params: NumericArray | NumericValue, _validate: bool
+    ) -> None:
         """
         Method to set new hyperparameter values for the kernel. hyperparameter
         values should be passed as a flat array in the order defined by the
         "hyperparameters" method.
 
         Args:
-            - params: Arrf64
+            - params: NumericArray | NumericValue
                 - New hyperparameter values to be set for the kernel.
+            - _validate: bool
+                - Whether to validate the hyperparameters before setting them.
+                  This is intended to be used for internal usage such as
+                  optimization loops where skipping the small overhead from
+                  validation saves a lot of time. If _validate is false, it is
+                  assumed you know what you are doing. Defaults to True.
+
         Returns:
             - None
         """
@@ -235,7 +239,13 @@ class Kernel(ABC):
 
     @abstractmethod
     def _get_expanded_bounds(self) -> list[tuple[f64, f64]]:
-        """ """
+        """
+        Private method to expand the defined bounds for a kernel based on it's
+        number of hyperparameters. For example, if an anisotropic PeriodicKernel
+        has three periods and three length scales, this function ensures that
+        three sets of the optimization bounds for each hyperparameter is passed
+        to the optimizer.
+        """
 
     @abstractmethod
     def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
@@ -254,7 +264,8 @@ class Kernel(ABC):
         always return ones).
 
         Args:
-            - x (Arrf64): Input array of shape (n, d).
+            - x: Arrf64
+                - Input array of shape (n, d).
 
         Returns:
             Arrf64: Diagonal of K(x, x) with shape (n,).
@@ -262,15 +273,17 @@ class Kernel(ABC):
         return np.diag(self._compute(x, x))
 
     def _validate_input_data(
-        self, x1: Arrf64, x2: Arrf64, name1: str, name2: str
+        self, x1: NumericArray, x2: NumericArray, name1: str, name2: str
     ) -> tuple[Arrf64, Arrf64]:
         """
         Private method to validate input data before being used for
         computation.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: NumericArray
+                - First input array.
+            - x2: NumericArray
+                - Second input array.
             - name1 (str): Name of first array for error messages.
             - name2 (str): Name of second array for error messages.
 
@@ -280,16 +293,19 @@ class Kernel(ABC):
         return validate_input_arrays(x1, name1, x2, name2)
 
     # ----------------------------- MAGIC METHODS ---------------------------- #
-    def __call__(self, x1: Arrf64, x2: Arrf64 | None) -> Arrf64:
+    def __call__(
+        self, x1: NumericArray, x2: NumericArray | None = None
+    ) -> Arrf64:
         """
         Compute the kernel matrix K(x1, x2) and allows the kernel instance to
         be called directly.
 
         Args:
-            - x1: Arrf64
+            - x1: NumericArray
               - First array of points to compute the kernel matrix with.
-            - x2: Arrf64
+            - x2: NumericArray | None
               - Second array of points to compute the kernel matrix with.
+                Defaults to None.
 
         Returns:
             - Arrf64: The kernel matrix K(x1, x2)
@@ -304,7 +320,7 @@ class Kernel(ABC):
         Returns a composite kernel representing the sum of this kernel and
         another.
 
-        This is equivelant to K_sum(x, x') = K(x, x') + K_other(x, x').
+        This is equivalent to K_sum(x, x') = K(x, x') + K_other(x, x').
 
         Args:
             - other: Kernel
@@ -327,7 +343,7 @@ class Kernel(ABC):
         Returns a composite kernel representing the product of this kernel and
         another.
 
-        This is equivelant to K_prod(x, x') = K(x, x') * K_other(x, x').
+        This is equivalent to K_prod(x, x') = K(x, x') * K_other(x, x').
 
         Args:
             - other: Kernel

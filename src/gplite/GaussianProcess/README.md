@@ -1,133 +1,147 @@
-# GaussianProcess Module
+# **GaussianProcess Module**
 
 Core Gaussian Process regression implementation with automatic hyperparameter optimization.
 
-## Overview
+## **Overview**
 
-A Gaussian Process defines a distribution over functions:
+A Gaussian Process (GP) is a non-parametric approach to machine learning that 
+defines a distribution over possible functions. GPs are probabilistic models,
+which means that their predictions come with information on their 
+**uncertainty**. Unlike traditional models that output a single deterministic guess, a 
+GP outputs a full probability distribution. It tells you not only *what* it 
+thinks the answer is, but exactly how *confident* it is in that prediction.
 
-```
-f(x) ~ GP(m(x), k(x, x'))
-```
+Because they are deeply grounded in Bayesian probability, GPs are exceptionally 
+data-efficient. They can model complex, non-linear relationships using a fraction 
+of the training data typically required by deep neural networks. This combination 
+of high data efficiency and built-in uncertainty quantification makes GPs the 
+standard tool for domains where data is expensive or slow to gather, such as 
+active learning and Bayesian optimization.
 
-where `m(x)` is the mean function (assumed zero) and `k(x, x')` is the covariance/kernel function.
+---
+
+## **Core Concepts and Architecture**
 
 ### Prediction Equations
+Given training data `(X, y)`, predictions at new points `X*` are computed 
+as such:
 
-Given training data `(X, y)`, predictions at new points `X*` are:
-
-```
+```text
 Mean:     μ* = K(X*, X) @ α,  where α = K(X, X)⁻¹ @ y
 Variance: σ²* = K(X*, X*) - K(X*, X) @ K(X, X)⁻¹ @ K(X, X*)
 ```
 
-## Usage
+### Hyperparameter Optimization
+Hyperparameters (like kernel length scales and noise) heavily dictate model 
+performance. By default, the GP optimizes these by maximizing the Log Marginal 
+Likelihood (LML).
 
-### Basic Fitting and Prediction
+LML is the go-to method for optimizing GP models, balancing the data fit 
+against a complexity penalty to prevent overfitting without requiring a 
+separate validation set or regularization term. The optimization uses a Two-Phase 
+hybrid approach (Global Screening -> Local Refinement) to efficiently navigate 
+the hyperparameter space and avoid poor local minima.
+
+### Custom Plugins 
+The `GaussianProcess` class is designed to be highly extensible. If the built-in 
+strategies do not fit your specific use-case, you can inject custom Python 
+functions directly into the optimization method. The built-in optimization 
+strategy (LML) should work well for most use cases, however, I find it important 
+that this package remain customizable. Should you find yourself needing a custom 
+optimization method, reference for the required function signature can be found 
+below:
+
+**Custom Loss Function**
+```python
+def custom_loss_function(gp: "GaussianProcess") -> float:
+    # ... custom loss function logic ...
+    return float(loss_value)
+```
+
+---
+
+## **Usage Example**
+A high-level overview of initializing, optimizing, and predicting with a GP model.
 
 ```python
-from gplite import GaussianProcess, RBFKernel
 import numpy as np
+from gplite.GaussianProcess import GaussianProcess
+from gplite.Kernels import RBFKernel
 
-# training data
-X = np.array([[1.0], [2.0], [3.0], [4.0]])
-y = np.array([1.0, 2.1, 2.9, 4.2])
+# 1. Initialize GP with a chosen kernel
+# by default, inputs (X) are automatically normalized to 0-mean, 1-variance
+gp = GaussianProcess(RBFKernel(length_scale=1.0), normalize_inputs=True)
 
-# create GP with RBF kernel
-kernel = RBFKernel(length_scale=1.0)
-gp = GaussianProcess(kernel, normalize_x=True)
+# 2. Fit the model to training data
+# setting optimize=True automatically tunes the kernel hyperparameters
+gp.fit(X_train, y_train, optimize=True, objective="lml")
 
-# fit without optimization
-gp.fit(X, y)
-
-# fit with hyperparameter optimization
-gp.fit(X, y, optimize=True, objective="lml") # or "log_marginal_likelihood" 
-
-# predict
-X_test = np.array([[1.5], [2.5], [3.5]])
-y_mean = gp.predict(X_test)
-y_mean, y_std = gp.predict(X_test, return_std=True)
-y_mean, y_cov = gp.predict(X_test, return_cov=True)
+# 3. Predict on new data
+y_preds = gp.predict(X_test)
 ```
 
-### Normalization
+---
 
-By default, input features are normalized to zero mean and unit variance:
+## **Class Reference**
 
+### 1. Initialization
 ```python
-# automatic normalization (default)
-gp = GaussianProcess(kernel, normalize_inputs=True)
-
-# disable if you normalize manually
-gp = GaussianProcess(kernel, normalize_inputs=False)
+GaussianProcess(kernel, normalize_inputs=True)
 ```
+Prepares the GP model with the specified covariance function.
+* **`kernel`** (*Kernel*): An initialized covariance kernel function.
+* **`normalize_inputs`** (*bool*): Whether to automatically normalize input 
+features to zero mean and unit variance. Target values are always normalized 
+internally. Default is `True`.
 
-Target values are always normalized internally.
+### 2. Core Methods
 
-### Save and Load
-
-Save a fitted model to disk and load it back for later use:
-
+#### `.fit(...)`
 ```python
-# save
-gp.save("model.pkl")
-
-# load
-gp_loaded = GaussianProcess.load("model.pkl")
-y_pred = gp_loaded.predict(X_test)
+.fit(x, y, optimize=False, objective="lml")
 ```
+Fits the Gaussian Process model to the training data, optionally tuning 
+hyperparameters.
+* **`x`** (*NumPy Array*): Input features.
+* **`y`** (*NumPy Array*): Target values.
+* **`optimize`** (*bool*): Whether to run hyperparameter optimization.
+* **`objective`** (*str or Callable*): The loss function to minimize if `
+optimize=True`. Pass `"lml"` or a custom function. Defaults to `"lml"`.
 
-
-### String Export
-
-Generate a mathematical expression for the fitted GP:
-
+#### `.predict(...)`
 ```python
-# for 2D input with variables named 'x' and 'y'
-expression = gp.to_str(variable_names=["x", "y"])
+.predict(x, return_std=False, return_cov=False)
 ```
+Generates predictions for new input data.
+* **`x`** (*NumPy Array*): New input features to evaluate.
+* **`return_std`** (*bool*): If `True`, returns `(mean, standard_deviation)`.
+* **`return_cov`** (*bool*): If `True`, returns `(mean, full_covariance_matrix)`.
 
-This is useful for exporting to external tools like OpenMM custom forces.
-
-## Class Reference
-
-### `GaussianProcess(kernel, normalize_x=True)`
-
-**Parameters:**
-- `kernel` (Kernel): Kernel instance defining the covariance function
-- `normalize_inputs` (bool): Whether to normalize input features. Default: `True`
-
-**Methods:**
-- `fit(x, y, optimize=False, objective="lml")`: Fit the GP to training data
-- `predict(x, return_std=False, return_cov=False)`: Make predictions
-- `optimize_hyperparameters(objective, num_restarts=5)`: Optimize kernel hyperparameters
-- `save(filepath)`: Save model to file
-- `load(filepath)` *(classmethod)*: Load model from file
-- `to_str(variable_names)`: Generate string representation
-
-**Attributes:**
-- `kernel`: The kernel instance
-- `x_train`, `y_train`: Normalized training data
-- `alpha`: Weights used for prediction
-
-## Hyperparameter Optimization
-
-Hyperparameters are optimized by maximizing the log marginal likelihood (LML):
-
-```
-log p(y|X,θ) = -0.5 * y.T @ K⁻¹ @ y - 0.5 * log|K| - n/2 * log(2π)
-                    (data fit)      (complexity)    (constant)
-```
-
-LML naturally balances data fit against model complexity - the complexity term penalizes overly flexible models, preventing overfitting without requiring a separate validation set.
-
+#### `.optimize_hyperparameters(...)`
 ```python
-# during fit
-gp.fit(X, y, optimize=True)
-
-# or separately
-gp.fit(X, y)
-gp.optimize_hyperparameters(num_restarts=5)
+.optimize_hyperparameters(objective="lml", num_restarts=10)
 ```
+Manually triggers hyperparameter optimization loop on an already-fitted model.
 
-Uses a two-phase hybrid approach: global screening from multiple starting points, then local refinement of top candidates.
+#### `.to_str(...)`
+```python
+.to_str(variable_names=["x", "y"])
+```
+Generates a raw mathematical string representation of the fitted GP, translating 
+the internal weights and kernel logic into an explicit equation. This package
+was originally designed to interface with OpenMM, so all outputted strings are
+formatted to be compatible with the mathematical functions they support.
+
+#### `.save(...)` / `.load(...)`
+```python
+gp.save(filepath="model.pkl")
+loaded_gp = GaussianProcess.load(filepath="model.pkl")
+```
+Saves the fitted model to disk, or loads a previously saved instance.
+
+### 3. Exposed Attributes
+You can access these internal properties after fitting:
+* **`gp.kernel`**: The kernel instance (containing the current optimized hyperparameters).
+* **`gp.x_train` / `gp.y_train`**: The normalized data the model was trained on.
+* **`gp.alpha`**: The internal weights `(K⁻¹ @ y)` computed during fitting, 
+used directly for downstream predictions.

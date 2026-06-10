@@ -21,11 +21,13 @@ This kernel produces infinitely differentiable (very smooth) functions and
 is the most commonly used kernel in Gaussian Process regression.
 """
 
+from typing import cast
+
 import numpy as np
 
 from gplite._utils._computation import compute_square_euclidean_distance
 from gplite._utils._data import expand_kernel_bounds
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite._utils._validation import (
     validate_anisotropic_hyperparameter,
     validate_anisotropic_hyperparameter_shape,
@@ -44,16 +46,22 @@ class RBFKernel(Kernel):
     Also known as the Squared Exponential or Gaussian kernel.
     """
 
-    def __init__(self, length_scale: Arrf64, isotropic: bool = True) -> None:
+    length_scale: Arrf64
+    isotropic: bool
+
+    def __init__(
+        self, length_scale: NumericArray | NumericValue, isotropic: bool = True
+    ) -> None:
         """
         Initializes an RBF kernel with the specified length scale.
 
         Args:
-            - length_scale (Arrf64): Length scale hyperparameter controlling
-                                     smoothness. Scalar for isotropic, array
-                                     for anisotropic (one per dimension).
-            - isotropic (bool): If True, uses single length scale for all
-                                dimensions. Defaults to True.
+            - length_scale: NumericArray | NumericValue
+                - Length scale hyperparameter controlling smoothness. Scalar for
+                  isotropic, array for anisotropic.
+            - isotropic: bool
+                - If True, uses single length scale for all dimensions. Defaults
+                  to True.
 
         Raises:
             ValidationError: If length_scale contains invalid values.
@@ -218,12 +226,21 @@ class RBFKernel(Kernel):
         """
         return self.length_scale
 
-    def set_params(self, params: Arrf64, validate: bool = True) -> None:
+    def set_params(
+        self, params: NumericArray | NumericValue, _validate: bool = True
+    ) -> None:
         """
-        Sets new length scale values for the kernel.
+        Sets new length scale value(s) for the kernel.
 
         Args:
-            - params (Arrf64): New length scale values as an array.
+            - params: NumericArray | NumericValue
+                - New length scale value(s) as an array.
+            - _validate: bool
+                - Whether to validate the hyperparameters before setting them.
+                    This is intended to be used for internal usage such as
+                    optimization loops where skipping the small overhead from
+                    validation saves a lot of time. If _validate is false, it is
+                    assumed you know what you are doing. Defaults to True.
 
         Raises:
             ValidationError: If params contains invalid values or wrong size
@@ -233,7 +250,7 @@ class RBFKernel(Kernel):
             UserWarning: If anisotropic params have different length than
                          current hyperparameters.
         """
-        if validate:
+        if _validate:
             expected_num_hyperparameters = len(self.length_scale)
             params = validate_set_params(
                 params,
@@ -242,7 +259,7 @@ class RBFKernel(Kernel):
                 expected_num_hyperparameters,
             )
 
-        self.length_scale = params
+        self.length_scale = cast("Arrf64", params)
 
     def _to_str(
         self, variable_names: list[str], alpha: f64, training_point: Arrf64

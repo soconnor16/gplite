@@ -1,6 +1,6 @@
 """
-Anisotropic (ARD) kernels: per-dimension length scales for multi-dimensional
-data.
+Demonstrates how to create multi-dimensional kernels and why they may be
+important.
 """
 
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ def target_function(x):
 
 
 # generate 2D training data
-rng = np.random.default_rng()
+rng = np.random.default_rng(0)
 x1_train = rng.uniform(0, 4, 40)
 x2_train = rng.uniform(0, 10, 40)
 x_train = np.column_stack([x1_train, x2_train])

@@ -4,7 +4,7 @@ from typing import Any
 import numpy as np
 
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 
 
 ### General Validation ###
@@ -21,7 +21,7 @@ def validate_numeric_value(
         - name: str
           - "name" of the value for more descriptive error messages.
 
-        - allow_negative: bool
+        - allow_nonpositive: bool
           - Whether the value should be allowed to be negative.
 
 
@@ -54,14 +54,15 @@ def validate_numeric_array(
     Function to validate numeric arrays and array-like types and reject others.
 
     Args:
-        - array (Any): The value to validate. Expected as an array of 64 bit
-                       floats or an object that can be converted to an array of
-                       64 bit floats.
+        - array: Any
+            - The value to validate. Expected as an array of 64 bit floats or an
+               object that can be converted to an array of 64 bit floats.
 
-        - name (str): The "name" of the object being validated.
+        - name: str
+            -The "name" of the object being validated.
 
-        - allow_nonpositive (bool): Whether nonpositive values should be allowed
-                                    in the array.
+        - allow_nonpositive: bool
+            - Whether nonpositive values should be allowed in the array.
 
     Returns:
         - Arrf64: The validated array if it passes all validation checks.
@@ -73,7 +74,7 @@ def validate_numeric_array(
     """
 
     try:
-        array = np.array(array, dtype=np.float64)
+        array = np.asarray(array, dtype=np.float64)
 
     except (OverflowError, TypeError, ValueError) as exc:
         err_msg = f"Error processing '{name}': {exc!s}"
@@ -107,16 +108,17 @@ def validate_isotropic_hyperparameter(param: Any, name: str) -> Arrf64:
     which are expected as arrays.
 
     Args:
-        - param (Any): The param to validate.
-        - name (str): The "name" of the hyperparameter for better error
-                      messages.
+        - param: Any
+            - The param to validate.
+        - name: str
+            - The "name" of the hyperparameter for better error messages.
 
     Returns:
         - Arrf64: The validated hyperparameter as a 1D array.
     """
     param = validate_numeric_value(param, name, allow_nonpositive=False)
 
-    return np.array([param], dtype=np.float64)
+    return np.asarray([param], dtype=np.float64)
 
 
 def validate_anisotropic_hyperparameter(param: Any, name: str) -> Arrf64:
@@ -125,9 +127,10 @@ def validate_anisotropic_hyperparameter(param: Any, name: str) -> Arrf64:
     of floats. Returns them as flattened 1D arrays.
 
     Args:
-        - param (Any): The hyperparameters to validate.
-        - name (str): The "name" of the hyperparameter for better error
-                      messages.
+        - param: Any
+            - The hyperparameters to validate.
+        - name: str
+            - The "name" of the hyperparameter for better error messages.
 
     Returns:
         - Arrf64: The validated hyperparameter as a 1D array.
@@ -138,7 +141,7 @@ def validate_anisotropic_hyperparameter(param: Any, name: str) -> Arrf64:
 
 
 def validate_input_arrays(
-    arr1: Arrf64, name1: str, arr2: Arrf64, name2: str
+    arr1: NumericArray, name1: str, arr2: NumericArray, name2: str
 ) -> tuple[Arrf64, Arrf64]:
     """
     Validates input arrays passed to a kernel's 'compute' method. Validates
@@ -146,10 +149,14 @@ def validate_input_arrays(
     shape (same number of features).
 
     Args:
-        - arr1 (Arrf64): First array to validate.
-        - name1 (str): "Name" of first array for better error messages.
-        - arr2 (Arrf64): Second array to validate.
-        - name2 (str): "Name" of second array for better error messages.
+        - arr1: NumericArray
+            - First array to validate.
+        - name1: str
+            - "Name" of first array for better error messages.
+        - arr2: NumericArray
+            - Second array to validate.
+        - name2: str
+            - "Name" of second array for better error messages.
 
     Returns:
         - tuple[Arrf64, Arrf64]: A tuple of validated arrays.
@@ -181,9 +188,10 @@ def validate_anisotropic_hyperparameter_shape(
     input data has features.
 
     Args:
-        - x1 (Arrf64): Input data array whose shape is used for reference.
-        - param (Arrf64): Anisotropic hyperparameter whose shape is being
-                          validated.
+        - x1: Arrf64
+            - Input data array whose shape is used for reference.
+        - param: Arrf64
+            - Anisotropic hyperparameter whose shape is being validated.
 
     Raises:
         ValidationError: If the number of features in x1 has a different value
@@ -210,9 +218,10 @@ def validate_multiple_anisotropic_hyperparameter_size(
     hyperparameters, all anisotropic hyperparameters have the same length.
 
     Args:
-        - params (Arrf64): List of anisotropic hyperparameters to validate.
-        - names (list[str]): List of the names of the hyperparameters to be
-                             valdidated.
+        - params: Arrf64
+            - List of anisotropic hyperparameters to validate.
+        - names: list[str]
+            - List of the names of the hyperparameters to be valdidated.
 
     Raises:
         ValidationError: If the anisotropic hyperparameters being validated do
@@ -239,16 +248,22 @@ def validate_multiple_anisotropic_hyperparameter_size(
 
 
 def validate_set_params(
-    params: Arrf64, name: str, isotropic: bool, expected_length: int
+    params: NumericArray | NumericValue,
+    name: str,
+    isotropic: bool,
+    expected_length: int,
 ) -> Arrf64:
     """
     Validates and prepares hyperparameters for kernel's set_params method.
 
     Args:
-        - params (Arrf64): Hyperparameter array to validate.
-        - name (str): Parameter name for error messages.
-        - isotropic (bool): If True, strictly enforce expected_length;
-                            if False, only warn about length mismatches.
+        - params: Arrf64
+            - Hyperparameter array to validate.
+        - name: str
+            - Parameter name for error messages.
+        - isotropic: bool
+            - If True, strictly enforce expected_length; if False, only warn
+              about length mismatches.
         - expected_length (int): Expected number of parameters.
 
     Returns:
@@ -289,15 +304,17 @@ def validate_set_params(
 
 
 def validate_input_and_target_data(
-    input_data: Arrf64, target_data: Arrf64
+    input_data: NumericArray, target_data: NumericArray
 ) -> tuple[Arrf64, Arrf64]:
     """
     Validates and reshapes input features and target values for Gaussian
     process fitting.
 
     Args:
-        - input_data (Arrf64): Input features array.
-        - target_data (Arrf64): Target values array.
+        - input_data: NumericArray
+            - Input features array.
+        - target_data: NumericArray
+            - Target values array.
 
     Returns:
         tuple[Arrf64, Arrf64]: Validated input array of shape (n, d) and
@@ -331,14 +348,16 @@ def validate_input_and_target_data(
 
 
 def validate_variable_names(
-    variable_names: list[str], expected_num_variables: int
+    variable_names: str | list[str], expected_num_variables: int
 ) -> list[str]:
     """
     Validates that variable names are strings and match the expected count.
 
     Args:
-        - variable_names (list[str]): List of variable name strings.
-        - expected_num_variables (int): Expected number of variables.
+        - variable_names: str | list[str]
+            - Variable name string or list of variable name strings.
+        - expected_num_variables: int
+            - Expected number of variables.
 
     Returns:
         list[str]: Validated variable names list.
@@ -347,6 +366,16 @@ def validate_variable_names(
         ValidationError: If not all elements are strings, or if the length
                          doesn't match expected_num_variables.
     """
+    if not isinstance(variable_names, (str, list)):
+        err_msg = (
+            "Error: 'variable_names' argument must be a string or "
+            "list of strings."
+        )
+        raise ValidationError(err_msg)
+
+    if isinstance(variable_names, str):
+        variable_names = [variable_names]
+
     if not all(isinstance(v, str) for v in variable_names):
         err_msg = "Error: Not all elements of 'variable_names' are strings."
         raise ValidationError(err_msg)

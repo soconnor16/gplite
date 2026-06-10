@@ -38,14 +38,16 @@ def negative_log_marginal_likelihood(
     Computes the negative log marginal likelihood and optionally its gradient.
 
     Args:
-        - gp (GaussianProcess): Fitted Gaussian Process model.
-        - return_gradient (bool): Whether to compute and return gradients.
-                                  Defaults to True.
+        - gp: GaussianProcess
+            - Fitted Gaussian Process model.
+        - return_gradient: bool
+            - Whether to compute and return gradients. Defaults to True.
 
     Returns:
         float | tuple[float, Arrf64]: Negative LML value, or tuple of
-            (negative LML, gradient array) if return_gradient is True.
-            Returns (inf, zeros) if Cholesky decomposition fails.
+                                      (negative LML, gradient array) if
+                                      return_gradient is True. Returns (inf, zeros)
+                                      if Cholesky decomposition fails.
     """
     X, y = gp.x_train, gp.y_train
 

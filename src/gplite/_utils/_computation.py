@@ -17,8 +17,10 @@ def compute_square_euclidean_distance(x1: Arrf64, x2: Arrf64) -> Arrf64:
     between two input arrays.
 
     Args:
-        - x1 (Arrf64): Input array 1 of shape.
-        - x2 (Arrf64): Input array 2 of shape.
+        - x1: Arrf64
+            - Input array 1 of shape (n_samples, n_features).
+        - x2: Arrf64
+            - Input array 2 of shape (m_samples, n_features).
 
     Returns:
         Arrf64: The square euclidean distance matrix between input arrays.
@@ -45,10 +47,13 @@ def compute_lower_cholesky_decomposition(
         2. Eigenvalue-based correction as a final fallback (more expensive)
 
     Args:
-        - K (Arrf64): Kernel matrix of shape (n, n)
-        - noise (float): Initial noise/jitter level to add to diagonal.
-        - max_attempts (int): Maximum number of decomposition attempts
-                              before falling back to eigenvalue correction.
+        - K: Arrf64
+            - Kernel matrix of shape (n, n)
+        - noise: float
+            - Initial noise/jitter level to add to diagonal.
+        - max_attempts: int
+            - Maximum number of decomposition attempts before falling back to
+              eigenvalue correction.
 
     Returns:
         tuple[Arrf64, float]: Lower triangular Cholesky factor L and the
@@ -118,9 +123,12 @@ def compute_rmse_across_dataset(
     across a dataset.
 
     Args:
-        - gp (GaussianProcess): Fitted Gaussian process model.
-        - x_full (Arrf64): Input features of shape (n, d).
-        - y_full (Arrf64): True target values of shape (n,).
+        - gp: GaussianProcess
+            - Fitted Gaussian process model.
+        - x_full: Arrf64
+            - Input features of shape (n, d).
+        - y_full: Arrf64
+            - True target values of shape (n,).
 
     Returns:
         f64: RMSE = sqrt(mean((y_pred - y_true)^2))

@@ -19,13 +19,15 @@ This kernel is ideal for data with known or learnable periodicity, such as
 seasonal patterns, cyclical phenomena, or any repeating structures.
 """
 
+from typing import cast
+
 import numpy as np
 
 from gplite._utils._data import (
     distribute_anisotropic_hyperparameters,
     expand_kernel_bounds,
 )
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite._utils._validation import (
     validate_anisotropic_hyperparameter,
     validate_anisotropic_hyperparameter_shape,
@@ -44,24 +46,29 @@ class PeriodicKernel(Kernel):
     where p is the period and l is the length scale.
     """
 
+    length_scale: Arrf64
+    period: Arrf64
+    isotropic: bool
+
     def __init__(
         self,
-        length_scale: Arrf64,
-        period: Arrf64,
+        length_scale: NumericArray | NumericValue,
+        period: NumericArray | NumericValue,
         isotropic: bool = True,
     ) -> None:
         """
         Initializes a periodic kernel with length scale and period parameters.
 
         Args:
-            - length_scale (Arrf64): Length scale hyperparameter controlling
-                                     smoothness. Scalar for isotropic, array
-                                     for anisotropic.
-            - period (Arrf64): Period hyperparameter defining the repetition
-                               interval. Scalar for isotropic, array for
-                               anisotropic.
-            - isotropic (bool): If True, uses single length scale and period
-                                for all dimensions. Defaults to True.
+            - length_scale: NumericArray | NumericValue
+                - Length scale hyperparameter controlling smoothness. Scalar for
+                  isotropic, array for anisotropic.
+            - period: NumericArray | NumericValue
+                - Period hyperparameter defining the repetition interval. Scalar
+                  for isotropic, array for anisotropic.
+            - isotropic: bool
+                - If True, uses single length scale and period for all
+                  dimensions. Defaults to True.
 
         Raises:
             ValidationError: If hyperparameters are invalid or anisotropic
@@ -105,8 +112,8 @@ class PeriodicKernel(Kernel):
         Returns the optimization bounds for hyperparameters.
 
         Returns:
-            list[tuple[f64, f64]]: Bounds for length scale and period, both
-                                   in range [1e-6, 5e2].
+            list[tuple[f64, f64]]: Bounds for length scale and period,
+                                   respectively.
         """
         return [
             (np.float64(1e-6), np.float64(5e2)),
@@ -118,8 +125,10 @@ class PeriodicKernel(Kernel):
         Computes the periodic kernel matrix between two input arrays.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             Arrf64: Kernel matrix of shape (n, m).
@@ -130,7 +139,7 @@ class PeriodicKernel(Kernel):
 
         exponent = np.zeros((n_rows, n_cols))
 
-        # Calculate the exponent dimension-by-dimension to avoid 3D allocations
+        # calculate the exponent dimension-by-dimension to avoid 3D allocations
         for dim in range(n_features):
             p_d = self.period[0] if self.isotropic else self.period[dim]
             l_d = (
@@ -139,7 +148,7 @@ class PeriodicKernel(Kernel):
                 else self.length_scale[dim]
             )
 
-            # Compute 1D absolute distance: shape (N, M)
+            # compute 1D absolute distance: shape (N, M)
             dist_d = np.abs(x1[:, dim : dim + 1] - x2[:, dim : dim + 1].T)
 
             sine_term = np.sin((np.pi / p_d) * dist_d)
@@ -153,8 +162,10 @@ class PeriodicKernel(Kernel):
         hyperparameters.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             tuple[Arrf64, ...]: Tuple of gradient tensors for length scale
@@ -172,8 +183,10 @@ class PeriodicKernel(Kernel):
         reusing intermediate calculations.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix and tuple of
@@ -244,13 +257,22 @@ class PeriodicKernel(Kernel):
         """
         return np.concatenate([self.length_scale, self.period])
 
-    def set_params(self, params: Arrf64, validate: bool = True) -> None:
+    def set_params(
+        self, params: NumericArray | NumericValue, _validate: bool = True
+    ) -> None:
         """
         Sets new hyperparameter values for the kernel.
 
         Args:
-            - params (Arrf64): Flat array containing length scale values
-                               followed by period values.
+            - params: Arrf64
+                - Flat array containing length scale values followed by period
+                  values.
+            - _validate: bool
+                - Whether to validate the hyperparameters before setting them.
+                  This is intended to be used for internal usage such as
+                  optimization loops where skipping the small overhead from
+                  validation saves a lot of time. If _validate is false, it is
+                  assumed you know what you are doing. Defaults to True.
 
         Raises:
             ValidationError: If params contains invalid values or wrong size
@@ -260,7 +282,7 @@ class PeriodicKernel(Kernel):
             UserWarning: If anisotropic params have different length than
                          current hyperparameters.
         """
-        if validate:
+        if _validate:
             expected_num_hyperparameters = len(self.length_scale) + len(
                 self.period
             )
@@ -270,6 +292,8 @@ class PeriodicKernel(Kernel):
                 self.isotropic,
                 expected_num_hyperparameters,
             )
+
+        params = cast("Arrf64", params)
 
         if self.isotropic:
             self.length_scale = params[:1]
@@ -288,9 +312,12 @@ class PeriodicKernel(Kernel):
         Creates a string representation of the periodic kernel expression.
 
         Args:
-            - variable_names (list[str]): Names of input variables.
-            - alpha (f64): Weight coefficient.
-            - training_point (Arrf64): Training point to center expression on.
+            - variable_names: list[str]
+                - Names of input variables.
+            - alpha: f64
+                - Weight coefficient.
+            - training_point: Arrf64
+                - Training point to center expression on.
 
         Returns:
             str: Mathematical expression string for the kernel.
@@ -327,7 +354,8 @@ class PeriodicKernel(Kernel):
         for all x since sin(0) = 0 makes the exponent zero.
 
         Args:
-            - x (Arrf64): Input array of shape (n, d).
+            - x: Arrf64
+                - Input array of shape (n, d).
 
         Returns:
             Arrf64: Array of ones with shape (n,).
@@ -354,7 +382,8 @@ class PeriodicKernel(Kernel):
         Validates that anisotropic hyperparameters match input dimensionality.
 
         Args:
-            - x (Arrf64): Input data for shape reference.
+            - x: Arrf64
+                - Input data for shape reference.
 
         Raises:
             ValidationError: If hyperparameter length doesn't match number of

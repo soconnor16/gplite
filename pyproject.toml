@@ -1,12 +1,18 @@
 [project]
 name = "gplite"
-version = "2.1.3"
+version = "3.0.0"
 description = "Lightweight Gaussian Process regression library"
 license = { file = "LICENSE" }
 authors = [{ name = "Stephen O'Connor", email = "soconnor10111@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10"
-keywords = ["gaussian-process", "machine-learning", "regression", "active-learning", "bayesian"]
+keywords = [
+    "gaussian-process",
+    "machine-learning",
+    "regression",
+    "active-learning",
+    "bayesian"
+]
 dependencies = [
     "numpy>=2.2.6",
     "scipy>=1.15.3",

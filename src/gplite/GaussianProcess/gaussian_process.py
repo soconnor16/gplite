@@ -33,7 +33,11 @@ from gplite._utils._data import (
     normalize_target_data,
 )
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64
+from gplite._utils._types import (
+    Arrf64,
+    GaussianProcessLossFunction,
+    NumericArray,
+)
 from gplite._utils._validation import (
     validate_input_and_target_data,
     validate_numeric_array,
@@ -51,12 +55,15 @@ class GaussianProcess:
     optimization and input/output normalization.
 
     Attributes:
-        - kernel (Kernel): The kernel function used to compute covariance.
-        - x_train (Arrf64): Training input features after normalization if
-                            input normalization was set to true during
-                            initialization.
-        - y_train (Arrf64): Training target values after normalization.
-        - alpha (Arrf64): Weights computed during fitting for predictions.
+        - kernel: Kernel
+            - The kernel function used to compute covariance.
+        - x_train: Arrf64
+            - Training input values. Normalized if normalize_inputs was left as
+              True, untouched otherwise.
+        - y_train: Arrf64
+            - Training target values after normalization.
+        - alpha: Arrf64
+            - Weights computed during fitting for predictions.
     """
 
     def __init__(self, kernel: Kernel, normalize_inputs: bool = True) -> None:
@@ -64,11 +71,11 @@ class GaussianProcess:
         Initializes a Gaussian Process model with the specified kernel.
 
         Args:
-            - kernel (Kernel): A kernel instance defining the covariance
-                               function.
-            - normalize_inputs (bool): Whether to normalize input features to
-                                       zero mean and unit variance. Defaults to
-                                       True.
+            - kernel: Kernel
+                - A kernel instance defining the covariance function.
+            - normalize_inputs: bool
+                - Whether to normalize input features to zero mean and unit
+                  variance. Defaults to True.
 
         Raises:
             ValidationError: If kernel is not a valid Kernel subclass.
@@ -101,7 +108,8 @@ class GaussianProcess:
         self._y_std = 1
 
         # input normalization stats (arrays to handle multiple features)
-        # only used if normalize_inputs is True; otherwise set to identity transform
+        # only used if normalize_inputs is True; otherwise set to identity
+        # transformation
         if self._normalize_inputs:
             self._x_mean = np.array([])
             self._x_std = np.array([])
@@ -109,7 +117,9 @@ class GaussianProcess:
         return
 
     def optimize_hyperparameters(
-        self, objective: str = "lml", num_restarts: int = 10
+        self,
+        objective: str | GaussianProcessLossFunction = "lml",
+        num_restarts: int = 10,
     ) -> None:
         """
         Optimizes the kernel hyperparameters using log-marginal-likelihood. The
@@ -118,10 +128,13 @@ class GaussianProcess:
         Processes in the future - but the only current valid value is "lml".
 
         Args:
-            - objective (str): The objective function to minimize. Options
-                               include 'lml' (log marginal likelihood).
-            - num_restarts (int): Number of random restarts to avoid local
-                                  minima. Defaults to 5.
+            - objective: str | GaussianProcessLossFunction
+                - The objective function to minimize. Options include 'lml'
+                  (log-marginal-likelihood) or a custom loss function. Defaults
+                  to 'lml'.
+            - num_restarts: int
+                - Number of random restarts to avoid local minima. Defaults to
+                  10.
         """
         optimize_hyperparameters(self, objective, num_restarts)
 
@@ -146,21 +159,25 @@ class GaussianProcess:
 
     def fit(
         self,
-        x: Arrf64,
-        y: Arrf64,
+        x: NumericArray,
+        y: NumericArray,
         optimize: bool = False,
-        objective: str = "lml",
+        objective: str | GaussianProcessLossFunction = "lml",
     ) -> None:
         """
         Fits the Gaussian Process model to training data.
 
         Args:
-            - x (Arrf64): Input features of shape (n_samples, n_features).
-            - y (Arrf64): Target values of shape (n_samples,).
-            - optimize (bool): Whether to optimize hyperparameters before
-                               fitting. Defaults to False.
-            - objective (str): Objective function for optimization if optimize
-                               is True. Defaults to 'lml'.
+            - x: NumericArray
+                - Input features of shape (n_samples, n_features).
+            - y: NumericArray
+                - Target values of shape (n_samples,).
+            - optimize: bool
+                - Whether to optimize hyperparameters before fitting. Defaults
+                  to False.
+            - objective: str | GaussianProcessLossFunction
+                - Objective function for optimization if optimize is True.
+                  Defaults to 'lml'.
 
         Raises:
             ValidationError: If input and target arrays have incompatible
@@ -187,18 +204,23 @@ class GaussianProcess:
             self._fit_without_optimization()
 
     def predict(
-        self, x: Arrf64, return_std: bool = False, return_cov: bool = False
+        self,
+        x: NumericArray,
+        return_std: bool = False,
+        return_cov: bool = False,
     ) -> Arrf64 | tuple[Arrf64, ...]:
         """
         Predicts target values for new input data with optional uncertainty
         estimates.
 
         Args:
-            - x (Arrf64): Input features of shape (n_samples, n_features).
-            - return_std (bool): Whether to return standard deviation of
-                                 predictions. Defaults to False.
-            - return_cov (bool): Whether to return full covariance matrix.
-                                 Defaults to False.
+            - x: NumericArray
+                - Input features of shape (n_samples, n_features).
+            - return_std: bool
+                - Whether to return standard deviation of predictions. Defaults
+                  to False.
+            - return_cov: bool
+                - Whether to return full covariance matrix. Defaults to False.
 
         Returns:
             Arrf64 | tuple[Arrf64, ...]: Predicted mean values, and optionally
@@ -223,8 +245,8 @@ class GaussianProcess:
         x = x.reshape(-1, 1) if x.ndim == 1 else x
 
         # normalize new input data
-        # this is safe even if _normalize_inputs is False because self._x_mean and
-        # self._x_std are initialized to default values of 0 and 1 anyways
+        # this is safe even if _normalize_inputs is False because self._x_mean
+        # and self._x_std are initialized to default values of 0 and 1 anyways
         x_norm = (x - self._x_mean) / self._x_std
 
         # compute mean prediction: μ* = K(x*, X) @ α
@@ -268,7 +290,8 @@ class GaussianProcess:
         Saves the Gaussian Process model to a file.
 
         Args:
-            - filepath (str or Path): Path to save the model to.
+            - filepath: str | Path
+                - Path to save the model to.
         """
         if not isinstance(filepath, (Path, str)):
             err_msg = "Error: 'filepath' must be a str type or Path object"
@@ -285,7 +308,8 @@ class GaussianProcess:
         Loads a Gaussian Process model from a file.
 
         Args:
-            - filepath (str or Path): Path to the saved model file.
+            - filepath: str | Path
+                - Path to the saved model file.
 
         Returns:
             GaussianProcess: The loaded model, ready for prediction.
@@ -326,8 +350,9 @@ class GaussianProcess:
         mathematical expression.
 
         Args:
-            - variable_names (list[str]): Names of input variables to use in
-                                          the expression (e.g., ['x', 'y']).
+            - variable_names: list[str]
+                - Names of input variables to use in the expression (e.g.,
+                  ['x', 'y']).
 
         Returns:
             str: Mathematical expression representing the GP prediction

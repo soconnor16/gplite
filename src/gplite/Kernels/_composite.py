@@ -24,10 +24,12 @@ Product Kernels (K₁ * K₂):
     ∂K_prod/∂θ₂ = K₁ * (∂K₂/∂θ₂)
 """
 
+from typing import cast
+
 import numpy as np
 
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite.Kernels._base import Kernel
 
 
@@ -43,7 +45,8 @@ class CompositeKernel(Kernel):
         Initializes a composite kernel with one or more child kernels.
 
         Args:
-            - *kernels (Kernel): Variable number of kernel instances to combine.
+            - kernels: Kernel
+                - Variable number of kernel instances to combine.
 
         Raises:
             ValidationError: If any operand is not a valid Kernel instance.
@@ -104,20 +107,44 @@ class CompositeKernel(Kernel):
 
         return np.concatenate(params_list)
 
-    def set_params(self, params: Arrf64, validate: bool = True) -> None:
+    def set_params(
+        self, params: NumericArray | NumericValue, _validate: bool = True
+    ) -> None:
         """
         Distributes and sets hyperparameters to each child kernel.
 
         Args:
-            - params (Arrf64): Flat array of hyperparameters to distribute
-                               across child kernels.
+            - params: NumericArray | NumericValue
+                - Flat array of hyperparameters to distribute across child
+                  kernels.
+            - _validate: bool
+                - Whether to validate the hyperparameters before setting them.
+                This is intended to be used for internal usage such as
+                optimization loops where skipping the small overhead from
+                validation saves a lot of time. If _validate is false, it is
+                assumed you know what you are doing. Defaults to True.
         """
+        if _validate:
+            if not hasattr(params, "__getitem__") and not isinstance(
+                params, (int, float, np.integer, np.floating)
+            ):
+                err_msg = (
+                    "Error: Composite kernels require an array-like object "
+                    "of hyperparameters, but received type "
+                    f"'{type(params).__name__}'. Ensure you are passing a list, "
+                    "tuple, or numpy array."
+                )
+                raise ValidationError(err_msg)
+
+            params = np.atleast_1d(np.asarray(params, dtype=np.float64))
+
+        params = cast("NumericArray", params)
         idx = 0
 
         for k in self.kernels:
             num_params = len(k.get_params())
             kernel_params = params[idx : idx + num_params]
-            k.set_params(kernel_params, validate)
+            k.set_params(kernel_params, _validate)
             idx += num_params
 
         return
@@ -143,9 +170,12 @@ class CompositeKernel(Kernel):
         Creates a string representation of the composite kernel expression.
 
         Args:
-            - variable_names (list[str]): Names of input variables.
-            - alpha (f64): Weight coefficient for the expression.
-            - training_point (Arrf64): Training point to center expression on.
+            - variable_names: list[str]
+                - Names of input variables.
+            - alpha: f64
+                - Weight coefficient for the expression.
+            - training_point: Arrf64
+                - Training point to center expression on.
 
         Returns:
             str: Mathematical expression string for the composite kernel.
@@ -175,22 +205,27 @@ class CompositeKernel(Kernel):
         Validates anisotropic hyperparameter shapes for all child kernels.
 
         Args:
-            - x (Arrf64): Input data array used for shape validation.
+            - x: Arrf64
+                - Input data array used for shape validation.
         """
         for k in self.kernels:
             k._validate_anisotropic_hyperparameter_shape(x)
 
     def _validate_input_data(
-        self, x1: Arrf64, x2: Arrf64, name1: str, name2: str
+        self, x1: NumericArray, x2: NumericArray, name1: str, name2: str
     ) -> tuple[Arrf64, Arrf64]:
         """
         Validates input data using the first child kernel's validation.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
-            - name1 (str): Name of first array for error messages.
-            - name2 (str): Name of second array for error messages.
+            - x1: NumericArray
+                - First input array.
+            - x2: NumericArray
+                - Second input array.
+            - name1: str
+                - Name of first array for error messages.
+            - name2: str
+                - Name of second array for error messages.
 
         Returns:
             tuple[Arrf64, Arrf64]: Validated input arrays.
@@ -210,7 +245,8 @@ class AdditiveKernel(CompositeKernel):
         of a sum of kernels is the sum of each kernel's diagonal.
 
         Args:
-            - x (Arrf64): Input array of shape (n, d).
+            - x: Arrf64
+                - Input array of shape (n, d).
 
         Returns:
             Arrf64: Sum of child kernel diagonals with shape (n,).
@@ -227,8 +263,10 @@ class AdditiveKernel(CompositeKernel):
         Computes the sum of kernel matrices from all child kernels.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             Arrf64: Sum of kernel matrices.
@@ -246,8 +284,10 @@ class AdditiveKernel(CompositeKernel):
         under addition.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             tuple[Arrf64, ...]: Concatenated gradients from all child kernels.
@@ -267,8 +307,10 @@ class AdditiveKernel(CompositeKernel):
         Computes kernel matrix and gradients together for efficiency.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix sum and
@@ -293,7 +335,8 @@ class AdditiveKernel(CompositeKernel):
         Adds another kernel to this additive kernel, flattening the structure.
 
         Args:
-            - other (Kernel): Kernel to add.
+            - other: Kernel
+                - Kernel to add.
 
         Returns:
             AdditiveKernel: New additive kernel containing all component
@@ -318,7 +361,8 @@ class ProductKernel(CompositeKernel):
         kernel's diagonal.
 
         Args:
-            - x (Arrf64): Input array of shape (n, d).
+            - x: Arrf64
+                - Input array of shape (n, d).
 
         Returns:
             Arrf64: Product of child kernel diagonals with shape (n,).
@@ -336,8 +380,10 @@ class ProductKernel(CompositeKernel):
         kernels.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             Arrf64: Product of kernel matrices.
@@ -355,8 +401,10 @@ class ProductKernel(CompositeKernel):
         d(ABC)/d_param = (dA * BC) + (dB * AC) + ...
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             tuple[Arrf64, ...]: Gradients scaled by product of other kernels.
@@ -382,8 +430,10 @@ class ProductKernel(CompositeKernel):
         Computes kernel product and gradients together for efficiency.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix product and
@@ -417,7 +467,8 @@ class ProductKernel(CompositeKernel):
         structure.
 
         Args:
-            - other (Kernel): Kernel to multiply.
+            - other: Kernel
+                - Kernel to multiply.
 
         Returns:
             ProductKernel: New product kernel containing all component kernels.

@@ -31,7 +31,8 @@ def root_mean_squared_error(learner: "ActiveLearner") -> f64:
     dataset.
 
     Args:
-        - learner (ActiveLearner): Active learner with fitted GP model.
+        - learner: ActiveLearner
+            - Active learner with fitted GP model.
 
     Returns:
         f64: Root mean squared error value.
@@ -48,7 +49,8 @@ def mean_absolute_error(learner: "ActiveLearner") -> f64:
     dataset.
 
     Args:
-        - learner (ActiveLearner): Active learner with fitted GP model.
+        - learner: ActiveLearner
+            - Active learner with fitted GP model.
 
     Returns:
         f64: Mean absolute error value.

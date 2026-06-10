@@ -17,9 +17,11 @@ This kernel is primarily used as a component in composite kernels:
 For example, c * RBF(l) scales the RBF kernel's output magnitude.
 """
 
+from typing import cast
+
 import numpy as np
 
-from gplite._utils._types import Arrf64, f64
+from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite._utils._validation import (
     validate_isotropic_hyperparameter,
     validate_set_params,
@@ -35,12 +37,15 @@ class ConstantKernel(Kernel):
     Useful as a bias term when combined with other kernels.
     """
 
-    def __init__(self, constant: f64) -> None:
+    constant: Arrf64
+
+    def __init__(self, constant: NumericValue) -> None:
         """
         Initializes a constant kernel with the specified constant value.
 
         Args:
-            - constant (f64): The constant covariance value. Must be positive.
+            - constant: NumericValue
+                - The constant covariance value. Must be positive.
 
         Raises:
             ValidationError: If constant is not a positive numeric value.
@@ -74,8 +79,10 @@ class ConstantKernel(Kernel):
         Computes the constant kernel matrix filled with the constant value.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             Arrf64: Kernel matrix of shape (n, m) filled with constant value.
@@ -87,8 +94,10 @@ class ConstantKernel(Kernel):
         Computes the gradient of the kernel with respect to the constant.
 
         Args:
-            - x1 (Arrf64): First input array of shape (n, d).
-            - x2 (Arrf64): Second input array of shape (m, d).
+            - x1: Arrf64
+                - First input array of shape (n, d).
+            - x2: Arrf64
+                - Second input array of shape (m, d).
 
         Returns:
             tuple[Arrf64, ...]: Gradient tensor of ones with shape (n, m, 1).
@@ -108,22 +117,31 @@ class ConstantKernel(Kernel):
         """
         return self.constant
 
-    def set_params(self, params: Arrf64, validate: bool = True) -> None:
+    def set_params(
+        self, params: NumericArray | NumericValue, _validate: bool = True
+    ) -> None:
         """
         Sets new hyperparameter values for the kernel.
 
         Args:
-            - params (Arrf64): New constant value as an array.
+            - params: NumericArray | NumericValue
+                - New constant value as an array.
+            - _validate: bool
+                - Whether to validate the hyperparameters before setting them.
+                    This is intended to be used for internal usage such as
+                    optimization loops where skipping the small overhead from
+                    validation saves a lot of time. If _validate is false, it is
+                    assumed you know what you are doing. Defaults to True.
 
         Raises:
             ValidationError: If params contains invalid values.
         """
-        if validate:
+        if _validate:
             self.constant = validate_set_params(
                 params, "New Constant Kernel Hyperparameter", True, 1
             )
         else:
-            self.constant = params.flatten()
+            self.constant = np.asarray(params, dtype=np.float64).ravel()
 
     def _compute_with_gradient(
         self, x1: Arrf64, x2: Arrf64
@@ -132,8 +150,10 @@ class ConstantKernel(Kernel):
         Computes kernel matrix and gradient together.
 
         Args:
-            - x1 (Arrf64): First input array.
-            - x2 (Arrf64): Second input array.
+            - x1: Arrf64
+                - First input array.
+            - x2: Arrf64
+                - Second input array.
 
         Returns:
             tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix and gradient tuple.
@@ -150,9 +170,12 @@ class ConstantKernel(Kernel):
         Creates a string representation of the constant kernel term.
 
         Args:
-            - variable_names (list[str]): Input variable names (unused).
-            - alpha (f64): Weight coefficient.
-            - training_point (Arrf64): Training point (unused).
+            - variable_names: list[str]
+                - Input variable names (unused).
+            - alpha: f64
+                - Weight coefficient.
+            - training_point: Arrf64
+                - Training point (unused).
 
         Returns:
             str: String representation 'alpha * constant'.
@@ -165,7 +188,8 @@ class ConstantKernel(Kernel):
         for all x.
 
         Args:
-            - x (Arrf64): Input array of shape (n, d).
+            - x: Arrf64
+                - Input array of shape (n, d).
 
         Returns:
             Arrf64: Array filled with the constant value, shape (n,).

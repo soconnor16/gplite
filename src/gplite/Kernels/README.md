@@ -1,175 +1,108 @@
-# Kernels Module
+# **Kernels Module**
 
-Kernel (covariance) functions for Gaussian Process regression.
+Covariance function definitions for Gaussian Process regression.
 
-## Overview
+## **Overview**
 
 Kernels define the covariance between function values at different input points:
 
-```
+```text
 Cov(f(x), f(x')) = k(x, x')
 ```
 
-The kernel determines the properties of functions the GP can represent (smoothness, periodicity, etc.).
+The kernel determines the structural properties of the functions a Gaussian Process can represent, such as smoothness, periodicity, or trends. Choosing the right kernel is the primary way to inject domain knowledge into the model. All valid kernels implemented in this module are symmetric and positive semi-definite (their covariance matrices are guaranteed to have non-negative eigenvalues).
 
-### Kernel Properties
+---
 
-All valid kernels are:
-- **Symmetric**: `k(x, x') = k(x', x)`
-- **Positive semi-definite**: Kernel matrices have non-negative eigenvalues
+## **Core Concepts and Architecture**
 
-## Available Kernels
+### Isotropic vs. Anisotropic (ARD)
+Except for the `ConstantKernel`, all built-in kernels support both **Isotropic** and **Anisotropic** configurations via the `isotropic` parameter. This dictates how the kernel handles multi-dimensional input data:
+* **Isotropic (`isotropic=True`)**: Uses a single hyperparameter value shared across all input dimensions. This assumes all features exist on a similar scale and contribute equally to the covariance.
+* **Anisotropic (`isotropic=False`)**: Uses separate hyperparameter values for each dimension (often called Automatic Relevance Determination or ARD). This allows the model to learn the relative importance of each feature independently. This is best for data whose trends are dimensionally-dependent.
 
-### RBF (Radial Basis Function) Kernel
+### Kernel Composition
+Kernels can be combined using standard Python operators `+` (addition) and `*` (multiplication) to model complex, multi-scale behaviors:
+* **Additive Kernels (`+`)**: Sum of independent components (e.g., trend + 
+seasonality).
+* **Product Kernels (`*`)**: Product of independent components (e.g., 
+amplitude-varying periodic).
 
-Also known as Squared Exponential or Gaussian kernel. Produces infinitely differentiable (very smooth) functions.
+---
 
-```
-K(x, x') = exp(-0.5 * ||x - x'||² / l²)
-```
-
+## **Usage Example**
+A high-level overview of initializing and composing a kernel for use with a
+GaussianProcess.
 ```python
-from gplite import RBFKernel
+from gplite.Kernels import RBFKernel, PeriodicKernel
+from gplite.GaussianProcess import GaussianProcess
 
-# isotropic (single length scale for all dimensions)
-kernel = RBFKernel(length_scale=1.0, isotropic=True)
+# an RBF Kernel to model a smooth trend
+trend = RBFKernel(length_scale=50.0)
 
-# anisotropic (separate length scale per dimension)
-kernel = RBFKernel(length_scale=[1.0, 2.0, 0.5], isotropic=False)
+# a Periodic Kernel to model a seasonal trend
+seasonality = PeriodicKernel(length_scale=1.5, period=12.0)
+
+# add them together so the GP models both behaviors simultaneously
+composite_kernel = trend + seasonality
+
+# pass the composite kernel to the GaussianProcess for regression
+gp = GaussianProcess(kernel=composite_kernel)
 ```
 
-### Matérn Kernel
+---
 
-A flexible kernel family with controllable smoothness. Less restrictive than RBF for physical processes with finite differentiability.
+## **Class Reference**
 
-```
-ν = 3/2:  K(x, x') = (1 + √3 r) exp(-√3 r)
-ν = 5/2:  K(x, x') = (1 + √5 r + 5r²/3) exp(-√5 r)
-```
+### 1. Available Kernels
+* **`RBFKernel(length_scale, isotropic=True)`**: Radial Basis Function 
+(Squared Exponential). Produces infinitely differentiable (very smooth) 
+functions. It is the standard choice for most interpolation tasks.
+* **`MaternKernel(length_scale, nu=2.5, isotropic=True)`**: A flexible family 
+with controllable smoothness (`nu=1.5` or `nu=2.5`). Less restrictive than RBF, 
+making it ideal for physical processes with finite differentiability.
+* **`PeriodicKernel(length_scale, period, isotropic=True)`**: Designed for 
+modeling repeating patterns, such as seasonal data.
+* **`ConstantKernel(constant)`**: Returns a constant covariance regardless of 
+inputs. Used primarily as a bias or a global scaling amplitude when multiplied 
+with other kernels.
 
-where `r = ||x - x'|| / l`.
+### 2. Core Methods
+All kernel instances provide the following public methods:
 
+#### `.compute(...)`
 ```python
-from gplite import MaternKernel
-
-# Matérn 5/2 — twice differentiable (default)
-kernel = MaternKernel(length_scale=1.0, nu=2.5)
-
-# Matérn 3/2 — once differentiable (rougher functions)
-kernel = MaternKernel(length_scale=1.0, nu=1.5)
-
-# anisotropic
-kernel = MaternKernel(length_scale=[1.0, 2.0], nu=2.5, isotropic=False)
+.compute(x1, x2) # or simply kernel(x1, x2)
 ```
+Computes the covariance matrix between two sets of input points.
+* **`x1`, `x2`** (*NumPy Array*): Input feature matrices of shape `(n_samples, n_features)`.
+* **Returns**: A covariance matrix of shape `(n_samples_1, n_samples_2)`.
 
-
-### Periodic Kernel
-
-For modeling repeating patterns (e.g., torsion angles, seasonal data).
-
-```
-K(x, x') = exp(-2 * Σᵢ sin²(π|xᵢ - x'ᵢ| / pᵢ) / lᵢ²)
-```
-
+#### `.gradient(...)`
 ```python
-from gplite import PeriodicKernel
-import numpy as np
-
-# isotropic
-kernel = PeriodicKernel(length_scale=1.0, period=2*np.pi, isotropic=True)
-
-# anisotropic
-kernel = PeriodicKernel(
-    length_scale=[1.0, 2.0],
-    period=[2*np.pi, np.pi],
-    isotropic=False
-)
+.gradient(x1, x2)
 ```
+Computes the gradients of the kernel matrix with respect to its hyperparameters.
+* **Returns**: A tuple of gradient arrays (one for each hyperparameter).
 
-### Constant Kernel
-
-Returns a constant covariance regardless of inputs. Used as bias or scaling factor.
-
-```
-K(x, x') = c
-```
-
+#### `.compute_with_gradient(...)`
 ```python
-from gplite import ConstantKernel
-
-kernel = ConstantKernel(constant=2.0)
+.compute_with_gradient(x1, x2)
 ```
+Am optimized method that computes both the kernel matrix and its gradients in a 
+single pass. Used heavily by the GP optimizer to prevent 
+redundant distance calculations.
 
-## Combining Kernels
-
-Kernels can be combined using `+` (addition) and `*` (multiplication):
-
-### Additive Kernels
-
-Sum of independent components:
-
+#### `.get_params()` / `.set_params(...)`
 ```python
-# smooth trend + periodic pattern
-kernel = RBFKernel(length_scale=5.0) + PeriodicKernel(length_scale=1.0, period=2*np.pi)
-```
-
-### Product Kernels
-
-Multiplicative interactions (one pattern modulates another):
-
-```python
-# scaled periodic kernel
-kernel = ConstantKernel(constant=2.0) * PeriodicKernel(length_scale=1.0, period=2*np.pi)
-
-# amplitude-varying periodic
-kernel = RBFKernel(length_scale=10.0) * PeriodicKernel(length_scale=1.0, period=2*np.pi)
-```
-
-### Complex Combinations
-
-```python
-# trend + seasonal + noise
-kernel = (
-    RBFKernel(length_scale=10.0) +  # long-term trend
-    PeriodicKernel(length_scale=1.0, period=1.0) +  # seasonal
-    ConstantKernel(constant=0.1)  # baseline
-)
-```
-
-## Kernel Methods
-
-All kernels implement:
-
-```python
-# compute kernel matrix
-K = kernel.compute(X1, X2)  # shape: (n, m)
-
-# compute gradients w.r.t. hyperparameters
-grads = kernel.gradient(X1, X2)  # tuple of gradient tensors
-
-# get/set hyperparameters
-params = kernel.get_params()  # flat array
+params = kernel.get_params()
 kernel.set_params(new_params)
-
-# direct call syntax
-K = kernel(X1, X2)  # same as kernel.compute(X1, X2)
 ```
+Interfaces for retrieving or updating the kernel's state (length scales, 
+periods, constants) as a flat 1D array.
 
-## Isotropic vs Anisotropic
-
-**Isotropic**: Single hyperparameter value shared across all input dimensions
-- Fewer parameters to optimize
-- Assumes all features have similar scales
-
-**Anisotropic** (ARD - Automatic Relevance Determination): Separate values per dimension
-- More flexible, can learn feature importance
-- Length scale → ∞ means feature is irrelevant
-- More parameters, may need more data
-
-```python
-# 3D input, isotropic (1 length scale)
-kernel = RBFKernel(length_scale=1.0, isotropic=True)
-
-# 3D input, anisotropic (3 length scales)
-kernel = RBFKernel(length_scale=[1.0, 2.0, 0.5], isotropic=False)
-```
+### 3. Exposed Attributes
+* **`kernel.hyperparameters`**: A tuple of strings defining the names of the 
+kernel's parameters.
+* **`kernel.bounds`**: A list of `(min, max)` tuples dictating the allowed 
+search space during optimization.
