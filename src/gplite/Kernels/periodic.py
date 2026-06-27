@@ -1,36 +1,44 @@
-"""
-Periodic kernel implementation for modeling repeating patterns in data.
+"""Periodic kernel class for modeling repeating patterns in data.
 
 The periodic kernel is defined as:
-
     K(x, x') = exp(-2 * Σᵢ sin²(π|xᵢ - x'ᵢ| / pᵢ) / lᵢ²)
 
 where:
     - p is the period hyperparameter (repetition interval)
     - l is the length scale hyperparameter (smoothness within each period)
 
-The gradients with respect to hyperparameters are:
-
+The gradients with respect to hyperparameters (length scale, period) are:
     ∂K/∂l = K * 4 * sin²(π|x - x'| / p) / l³
 
     ∂K/∂p = K * 4π|x - x'| * sin(π|x - x'| / p) * cos(π|x - x'| / p) / (l² * p²)
 
 This kernel is ideal for data with known or learnable periodicity, such as
 seasonal patterns, cyclical phenomena, or any repeating structures.
+
+More detailed documentation about many methods below can be found in the Kernel
+base class in 'Kernels/_base.py'.
 """
 
 from typing import cast
 
 import numpy as np
 
+from gplite._utils._constants import EPSILON
 from gplite._utils._data import (
     distribute_anisotropic_hyperparameters,
-    expand_kernel_bounds,
+    resolve_bounds_shape,
 )
-from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
+from gplite._utils._types import (
+    Arrf64,
+    KernelBounds,
+    NumericArray,
+    NumericValue,
+    f64,
+)
 from gplite._utils._validation import (
     validate_anisotropic_hyperparameter,
     validate_anisotropic_hyperparameter_shape,
+    validate_bounds_dict,
     validate_isotropic_hyperparameter,
     validate_multiple_anisotropic_hyperparameter_size,
     validate_set_params,
@@ -39,11 +47,20 @@ from gplite.Kernels._base import Kernel
 
 
 class PeriodicKernel(Kernel):
-    """
-    Periodic kernel for modeling data with repeating patterns.
-    K(x, x') = exp(-2 * sum(sin(pi * |x - x'| / p)^2 / l^2))
+    """Periodic kernel for modeling data with repeating patterns.
 
+    The periodic kernel matrix is defined as:
+        K(x, x') = exp(-2 * sum(sin(pi * |x - x'| / p)² / l²))
     where p is the period and l is the length scale.
+
+    Attributes:
+        bounds: A dictionary of kernel hyperparameter names and their current
+            bounds.
+        hyperparameters: A tuple of the kernel's hyperparameter names as
+            strings.
+        isotropic: A boolean indicating whether the kernel is isotropic.
+        length_scale: The current value for the length_scale hyperparameter.
+        period: The current value for the kernel's period hyperparameter.
     """
 
     length_scale: Arrf64
@@ -55,83 +72,116 @@ class PeriodicKernel(Kernel):
         length_scale: NumericArray | NumericValue,
         period: NumericArray | NumericValue,
         isotropic: bool = True,
+        bounds: KernelBounds | None = None,
     ) -> None:
-        """
-        Initializes a periodic kernel with length scale and period parameters.
+        """Initializes a periodic kernel.
 
         Args:
-            - length_scale: NumericArray | NumericValue
-                - Length scale hyperparameter controlling smoothness. Scalar for
-                  isotropic, array for anisotropic.
-            - period: NumericArray | NumericValue
-                - Period hyperparameter defining the repetition interval. Scalar
-                  for isotropic, array for anisotropic.
-            - isotropic: bool
-                - If True, uses single length scale and period for all
-                  dimensions. Defaults to True.
+            length_scale: Length scale hyperparameter controlling smoothness.
+                Scalar for isotropic, array for anisotropic.
+            period: Period hyperparameter defining the repetition interval.
+                Scalar for isotropic, array for anisotropic.
+            isotropic: If True, uses single length scale and period for all
+                dimensions. Defaults to True.
+            bounds: Custom hyperparameter bounds. Must be a dictionary where
+                keysare the hyperparameter names (strings) and values are either
+                a single tuple (min, max) or a list of tuples [(min, max), ...].
+                For example: {"period": (3.1415, 6.2830)}. Defaults to None.
 
         Raises:
-            ValidationError: If hyperparameters are invalid or anisotropic
-                             parameters have mismatched sizes.
+            ValidationError: If hyperparameter values are invalid or anisotropic
+                hyperparameters have mismatched sizes.
         """
         self.length_scale = (
             validate_isotropic_hyperparameter(
-                length_scale, "Periodic Length Scale"
+                length_scale,
+                "Periodic Length Scale",
             )
             if isotropic
             else validate_anisotropic_hyperparameter(
-                length_scale, "Periodic Length Scale"
+                length_scale,
+                "Periodic Length Scale",
             )
         )
         self.period = (
-            validate_isotropic_hyperparameter(period, "Periodic period")
+            validate_isotropic_hyperparameter(period, "Periodic Period")
             if isotropic
-            else validate_anisotropic_hyperparameter(period, "Periodic period")
+            else validate_anisotropic_hyperparameter(period, "Periodic Period")
         )
 
         if not isotropic:
             validate_multiple_anisotropic_hyperparameter_size(
                 [self.length_scale, self.period],
-                ["Periodic Length Scale", "Periodic period"],
+                ["Periodic Length Scale", "Periodic Period"],
             )
         self.isotropic = isotropic
 
+        self._bound_config = {
+            "length_scale": [(np.float64(1e-6), np.float64(5e2))],
+            "period": [(np.float64(1e-6), np.float64(5e2))],
+        }
+
+        if bounds is not None:
+            validated_bounds = validate_bounds_dict(
+                bounds=bounds,
+                expected_params=["length_scale", "period"],
+                kernel_name="PeriodicKernel",
+            )
+            self._bound_config.update(validated_bounds)
+
     @property
     def hyperparameters(self) -> tuple[str, ...]:
-        """
-        Returns the names of the kernel's hyperparameters.
+        """Defines kernel hyperparameters.
 
         Returns:
-            tuple[str, ...]: Tuple containing 'length scale' and 'period'.
+            The names of the hyperparameters in a given kernel as a tuple of
+            strings.
         """
-        return ("length scale", "period")
+        return ("length_scale", "period")
 
     @property
-    def bounds(self) -> list[tuple[f64, f64]]:
-        """
-        Returns the optimization bounds for hyperparameters.
+    def bounds(self) -> dict[str, list[tuple[f64, f64]]]:
+        """Defines kernel bounds.
 
         Returns:
-            list[tuple[f64, f64]]: Bounds for length scale and period,
-                                   respectively.
+            A dictionary with the kernel's hyperparameter names and their
+            respective bounds.
         """
-        return [
-            (np.float64(1e-6), np.float64(5e2)),
-            (np.float64(1e-6), np.float64(5e2)),
-        ]
+        length_scale_dimensions = np.atleast_1d(self.length_scale).size
+        period_dimensions = np.atleast_1d(self.period).size
+
+        return {
+            "length_scale": resolve_bounds_shape(
+                self._bound_config["length_scale"],
+                length_scale_dimensions,
+                "length_scale",
+            ),
+            "period": resolve_bounds_shape(
+                self._bound_config["period"],
+                period_dimensions,
+                "period",
+            ),
+        }
+
+    @property
+    def _bounds(self) -> list[tuple[f64, f64]]:
+        """Exposes the bounds defined for the kernel hyperparameters internally.
+
+        Returns:
+            A flat list of tuples representing the bounds for a kernel's
+            hyperparameters.
+        """
+        return self.bounds["length_scale"] + self.bounds["period"]
 
     def _compute(self, x1: Arrf64, x2: Arrf64) -> Arrf64:
-        """
-        Computes the periodic kernel matrix between two input arrays.
+        """Computes the similarity matrix of the kernel.
 
         Args:
-            - x1: Arrf64
-                - First input array of shape (n, d).
-            - x2: Arrf64
-                - Second input array of shape (m, d).
+            x1: First array of points used to compute the kernel matrix.
+            x2: Second array of points used to compute the kernel matrix.
 
         Returns:
-            Arrf64: Kernel matrix of shape (n, m).
+            Kernel covariance matrix calculated between x1 and x2.
         """
         n_rows = x1.shape[0]
         n_cols = x2.shape[0]
@@ -157,40 +207,34 @@ class PeriodicKernel(Kernel):
         return np.exp(-2.0 * exponent)
 
     def _gradient(self, x1: Arrf64, x2: Arrf64) -> tuple[Arrf64, ...]:
-        """
-        Computes the gradient of the periodic kernel with respect to its
-        hyperparameters.
+        """Compute the kernel's gradient with respect to its hyperparameters.
 
         Args:
-            - x1: Arrf64
-                - First input array of shape (n, d).
-            - x2: Arrf64
-                - Second input array of shape (m, d).
+            x1: First array of points used to compute the kernel gradient.
+            x2: Second array of points used to compute the kernel gradient.
 
         Returns:
-            tuple[Arrf64, ...]: Tuple of gradient tensors for length scale
-                                and period.
+            Tuple of a kernel's gradients with respect to each of its
+            hyperparameters.
         """
         _, gradients = self._compute_with_gradient(x1, x2)
 
         return gradients
 
     def _compute_with_gradient(
-        self, x1: Arrf64, x2: Arrf64
+        self,
+        x1: Arrf64,
+        x2: Arrf64,
     ) -> tuple[Arrf64, tuple[Arrf64, ...]]:
-        """
-        Computes kernel matrix and gradients together for efficiency by
-        reusing intermediate calculations.
+        """Computes the kernel's matrix and gradients together.
 
         Args:
-            - x1: Arrf64
-                - First input array of shape (n, d).
-            - x2: Arrf64
-                - Second input array of shape (m, d).
+            x1: First input array of shape (n, d).
+            x2: Second input array of shape (m, d).
 
         Returns:
-            tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix and tuple of
-                gradient tensors.
+            Tuple containing the kernel matrix K of shape (n, m) and a
+            tuple of gradient tensors.
         """
         n_rows = x1.shape[0]
         n_cols = x2.shape[0]
@@ -249,42 +293,38 @@ class PeriodicKernel(Kernel):
         return K, (grad_ls, grad_p)
 
     def get_params(self) -> Arrf64:
-        """
-        Returns the current hyperparameters as a concatenated array.
+        """Returns the current hyperparameter values.
 
         Returns:
-            Arrf64: Array of [length_scale, period] values.
+            Array of the kernel's hyperparameter values.
         """
         return np.concatenate([self.length_scale, self.period])
 
     def set_params(
-        self, params: NumericArray | NumericValue, _validate: bool = True
+        self,
+        params: NumericArray | NumericValue,
+        _validate: bool = True,
     ) -> None:
-        """
-        Sets new hyperparameter values for the kernel.
+        """Method to set new hyperparameter values for the kernel.
 
         Args:
-            - params: Arrf64
-                - Flat array containing length scale values followed by period
-                  values.
-            - _validate: bool
-                - Whether to validate the hyperparameters before setting them.
-                  This is intended to be used for internal usage such as
-                  optimization loops where skipping the small overhead from
-                  validation saves a lot of time. If _validate is false, it is
-                  assumed you know what you are doing. Defaults to True.
+            params: New hyperparameter values to be set for the kernel.
+            _validate: Whether to validate the hyperparameters before setting
+                them. This is intended to be used for internal usage such as
+                optimization loops where skipping the small overhead from
+                validation saves a lot of time. If _validate is false, it is
+                assumed you know what you are doing. Defaults to True.
 
         Raises:
-            ValidationError: If params contains invalid values or wrong size
-                             for isotropic kernel.
+            ValidationError: If the input parameter values are invalid.
 
         Warns:
             UserWarning: If anisotropic params have different length than
-                         current hyperparameters.
+                current hyperparameters.
         """
         if _validate:
             expected_num_hyperparameters = len(self.length_scale) + len(
-                self.period
+                self.period,
             )
             params = validate_set_params(
                 params,
@@ -303,91 +343,72 @@ class PeriodicKernel(Kernel):
                 distribute_anisotropic_hyperparameters(params, 2)
             )
 
-        return
-
     def _to_str(
-        self, variable_names: list[str], alpha: f64, training_point: Arrf64
+        self,
+        variable_names: list[str],
+        alpha: f64,
+        training_point: Arrf64,
     ) -> str:
-        """
-        Creates a string representation of the periodic kernel expression.
+        """Creates a string representation of a kernel at a single data point.
 
         Args:
-            - variable_names: list[str]
-                - Names of input variables.
-            - alpha: f64
-                - Weight coefficient.
-            - training_point: Arrf64
-                - Training point to center expression on.
+            variable_names: Names of variables to be used in the string
+                (e.g., ['x', 'y']).
+            alpha: The computed weight for this data point.
+            training_point: The specific training point to center the expression
+                along.
 
         Returns:
-            str: Mathematical expression string for the kernel.
+            A string representation of the mathematical definition of the
+            kernel function at the given training point.
         """
         difference_parts = []
 
-        length_scale_squared = self.length_scale**2
+        # precompute frequencies and amplitudes
+        freqs = np.pi / self.period
+        amplitudes = -2.0 / (self.length_scale**2)
 
         for i, var in enumerate(variable_names):
-            # handle length scale and period, they should remain constant
-            # if isotropic is true, and change with the dimension otherwise
-            scale_squared = (
-                length_scale_squared[0]
-                if self.isotropic
-                else length_scale_squared[i]
-            )
-            period = self.period[0] if self.isotropic else self.period[i]
+            freq = freqs[0] if self.isotropic else freqs[i]
+            amp = amplitudes[0] if self.isotropic else amplitudes[i]
+            tp = float(training_point[i])
 
-            # prepare the sine squared term string:
-            # sin( pi * (x - x') / p )^2 / l^2
-            diff_term = f"( {var} - {training_point[i]:.6e} )"
-            sine_term = f"sin( {np.pi:.6e} * {diff_term} / {period:.6e} )^2"
-            term_str = f"{sine_term} / {scale_squared:.6e}"
+            # handle different training point cases to save tokens
+            # when possible
+            if abs(tp) < EPSILON:
+                inner = f"{freq:.6e}*{var}"
+            elif tp < 0.0:
+                inner = f"{freq:.6e}*({var}+{abs(tp):.6e})"
+            else:
+                inner = f"{freq:.6e}*({var}-{tp:.6e})"
 
-            difference_parts.append(term_str)
+            term = f"{amp:.6e}*sin({inner})²"
+            difference_parts.append(term)
 
-        exponent_sum = " + ".join(difference_parts)
+        exponent_sum = "+".join(difference_parts)
 
-        return f"( {alpha:.6e} * exp( -2.0 * ( {exponent_sum} ) ) )"
+        return f"{alpha:.6e}*exp({exponent_sum})"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
-        """
-        Returns the diagonal of K(x, x). For the periodic kernel, k(x, x) = 1
-        for all x since sin(0) = 0 makes the exponent zero.
+        """Computes the diagonal of the kernel matrix K(x, x).
 
         Args:
-            - x: Arrf64
-                - Input array of shape (n, d).
+            x: Input array of shape (n, d).
 
         Returns:
-            Arrf64: Array of ones with shape (n,).
+            The diagonal of K(x, x) as a flat array.
         """
         return np.ones(x.shape[0])
 
-    def _get_expanded_bounds(self) -> list[tuple[f64, f64]]:
-        """
-        Returns expanded bounds for anisotropic hyperparameters.
-
-        Returns:
-            list[tuple[f64, f64]]: Bounds list expanded to match total number
-                                   of hyperparameters.
-        """
-        if self.isotropic:
-            return self.bounds
-
-        return expand_kernel_bounds(
-            np.concatenate([self.length_scale, self.period]), self.bounds, 2
-        )
-
     def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
-        """
-        Validates that anisotropic hyperparameters match input dimensionality.
+        """Validates the shapes of anisotropic hyperparameters.
 
         Args:
-            - x: Arrf64
-                - Input data for shape reference.
+            x: Input data array to be validated.
 
         Raises:
-            ValidationError: If hyperparameter length doesn't match number of
-                             features.
+            ValidationError: If the hyperparameter length doesn't match the
+                number of features.
         """
         if not self.isotropic:
             validate_anisotropic_hyperparameter_shape(x, self.length_scale)

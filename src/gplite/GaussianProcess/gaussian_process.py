@@ -1,6 +1,4 @@
-"""
-Gaussian Process Regression (GPR) implementation for supervised learning with
-uncertainty quantification.
+"""Gaussian Process Regression class for probabilistic machine learning.
 
 Gaussian Processes define a distribution over functions f(x) ~ GP(m(x), k(x,x'))
 where m(x) is the mean function (assumed zero here) and k(x,x') is the
@@ -8,8 +6,8 @@ covariance/kernel function.
 
 Given training data (X, y), predictions at new points X* are computed as:
 
-    Mean:     μ* = K(X*, X) @ α,  where α = K(X, X)^{-1} @ y
-    Variance: σ²* = K(X*, X*) - K(X*, X) @ K(X, X)^{-1} @ K(X, X*)
+    Mean:     μ* = K(X*, X) @ α,  where α = K(X, X)^(-1) @ y
+    Variance: σ²* = K(X*, X*) - K(X*, X) @ K(X, X)^(-1) @ K(X, X*)
 
 The Cholesky decomposition L (where K = L @ L.T) is used for numerical
 stability, allowing efficient computation of α via solving L @ L.T @ α = y.
@@ -17,7 +15,7 @@ stability, allowing efficient computation of α via solving L @ L.T @ α = y.
 Hyperparameters (kernel parameters and noise) can be optimized by maximizing
 the log marginal likelihood:
 
-    log p(y|X,θ) = -0.5 * y.T @ K^{-1} @ y - 0.5 * log|K| - n/2 * log(2π)
+    log p(y|X,θ) = -0.5 * y.T @ K^(-1) @ y - 0.5 * log|K| - n/2 * log(2π)
 """
 
 import pickle
@@ -28,9 +26,10 @@ import numpy as np
 from scipy import linalg
 
 from gplite._utils._computation import compute_lower_cholesky_decomposition
+from gplite._utils._constants import EPSILON
 from gplite._utils._data import (
-    normalize_input_data,
-    normalize_target_data,
+    standardize_input_data,
+    standardize_target_data,
 )
 from gplite._utils._errors import ValidationError
 from gplite._utils._types import (
@@ -50,32 +49,44 @@ from gplite.Optimization.gaussian_process.optimization import (
 
 
 class GaussianProcess:
-    """
-    Gaussian Process model for regression with optional hyperparameter
-    optimization and input/output normalization.
+    """Gaussian Process class for regression.
+
+    The GaussianProcess class is designed to aid the easy training of GPR
+    models. Gaussian Process Regression (GPR) models can be extremely useful for
+    applications in which little data is available and some prior knowledge of
+    the data is had. The flexibility of the kernels used by GPR allows for the
+    injection of prior knowledge into the model, which can make training much
+    more efficient, though also makes kernel selection important. GPR models can
+    leverage log-marginal likelihood targets to automate the tuning of kernel
+    hyperparameters, which can drastically improve the fit of the model while
+    decreasing the manual tuning required from the user. Gaussian Processes are
+    also known to require less training data than other models such as neural
+    networks, making them ideal for situations in which the shape of the data
+    is known but few data points are available. When used for prediction,
+    GPR models return not only predicted values but also their covariance, which
+    can be thought of as the model's "certainty" about the predicted point.
+
+    GPR models may not be the best fit for high-dimensional data or large
+    dataset as the time and memory complexity of fitting a model scales roughly
+    with the number of data points cubed.
 
     Attributes:
-        - kernel: Kernel
-            - The kernel function used to compute covariance.
-        - x_train: Arrf64
-            - Training input values. Normalized if normalize_inputs was left as
-              True, untouched otherwise.
-        - y_train: Arrf64
-            - Training target values after normalization.
-        - alpha: Arrf64
-            - Weights computed during fitting for predictions.
+        kernel: The kernel function used to compute covariance.
+        x_train: Training input values. Standardized to zero mean and unit
+            variance if standardize_inputs was left as True, untouched
+            otherwise.
+        y_train: Training target values after standardization.
+        alpha: Weights computed during fitting for predictions.
     """
 
-    def __init__(self, kernel: Kernel, normalize_inputs: bool = True) -> None:
-        """
-        Initializes a Gaussian Process model with the specified kernel.
+    def __init__(self, kernel: Kernel, standardize_inputs: bool = True) -> None:
+        """Initializes a Gaussian Process model with the specified kernel.
 
         Args:
-            - kernel: Kernel
-                - A kernel instance defining the covariance function.
-            - normalize_inputs: bool
-                - Whether to normalize input features to zero mean and unit
-                  variance. Defaults to True.
+            kernel: A kernel instance defining the covariance function used by
+                the GPR model.
+            standardize_inputs: Whether to standardize input features to zero
+                mean and unit variance. Defaults to True.
 
         Raises:
             ValidationError: If kernel is not a valid Kernel subclass.
@@ -87,7 +98,7 @@ class GaussianProcess:
             raise ValidationError(err_msg)
 
         self.kernel = kernel
-        self._normalize_inputs = normalize_inputs
+        self._standardize_inputs = standardize_inputs
 
         # simulates gaussian noise in data, optimized with kernel
         # hyperparameters helps stabilize fitting with numerically unstable data
@@ -97,65 +108,59 @@ class GaussianProcess:
         self.x_train = np.array([])
         self.y_train = np.array([])
 
-        # GP weight parameter (alpha = K^-1 @ y)
+        # GP weight parameter (alpha = K^(-1) @ y)
         self.alpha = np.array([])
 
         # lower cholesky decomposition of the kernel matrix K
         self._lower_chol = np.array([])
 
-        # target normalization stats (always used)
+        # target standardization stats (always used)
         self._y_mean = 0
         self._y_std = 1
 
-        # input normalization stats (arrays to handle multiple features)
-        # only used if normalize_inputs is True; otherwise set to identity
+        # input standardization stats (arrays to handle multiple features)
+        # only used if standardize_inputs is True; otherwise set to identity
         # transformation
-        if self._normalize_inputs:
+        if self._standardize_inputs:
             self._x_mean = np.array([])
             self._x_std = np.array([])
-
-        return
 
     def optimize_hyperparameters(
         self,
         objective: str | GaussianProcessLossFunction = "lml",
         num_restarts: int = 10,
     ) -> None:
-        """
-        Optimizes the kernel hyperparameters using log-marginal-likelihood. The
-        option to pass an objective function is there for flexibility - if it
-        becomes useful to have another form of optimization for Gaussian
-        Processes in the future - but the only current valid value is "lml".
+        """Optimizes the kernel hyperparameters.
 
         Args:
-            - objective: str | GaussianProcessLossFunction
-                - The objective function to minimize. Options include 'lml'
-                  (log-marginal-likelihood) or a custom loss function. Defaults
-                  to 'lml'.
-            - num_restarts: int
-                - Number of random restarts to avoid local minima. Defaults to
-                  10.
+            objective: The objective function to minimize. Options include 'lml'
+                (log-marginal-likelihood) or a custom loss function. Defaults to
+                'lml'.
+            num_restarts: Number of random restarts to avoid local minima.
+                Defaults to 10.
         """
         optimize_hyperparameters(self, objective, num_restarts)
 
     def _fit_without_optimization(self) -> None:
-        """
-        Fits the Gaussian Process to training data without optimizing
-        hyperparameters. Computes the kernel matrix, its Cholesky decomposition,
-        and the alpha weights used for prediction.
+        """Fits the Gaussian Process to training data without optimization.
+
+        This method fits the kernel matrix, its Cholesky decomposition, and the
+        alpha weights used for prediction.
         """
         # kernel matrix K(x_train, x_train)
         K = self.kernel._compute(self.x_train, self.x_train)
 
         self._lower_chol, self._noise = compute_lower_cholesky_decomposition(
-            K, self._noise, max_attempts=10
+            K,
+            self._noise,
+            max_attempts=10,
         )
 
         self.alpha = linalg.cho_solve(
-            (self._lower_chol, True), self.y_train, check_finite=False
+            (self._lower_chol, True),
+            self.y_train,
+            check_finite=False,
         )
-
-        return
 
     def fit(
         self,
@@ -164,29 +169,24 @@ class GaussianProcess:
         optimize: bool = False,
         objective: str | GaussianProcessLossFunction = "lml",
     ) -> None:
-        """
-        Fits the Gaussian Process model to training data.
+        """Fits the Gaussian Process model to training data.
 
         Args:
-            - x: NumericArray
-                - Input features of shape (n_samples, n_features).
-            - y: NumericArray
-                - Target values of shape (n_samples,).
-            - optimize: bool
-                - Whether to optimize hyperparameters before fitting. Defaults
-                  to False.
-            - objective: str | GaussianProcessLossFunction
-                - Objective function for optimization if optimize is True.
-                  Defaults to 'lml'.
+            x: Input features of shape (n_samples, n_features).
+            y: Target values of shape (n_samples,).
+            optimize: Whether to optimize hyperparameters before fitting.
+                Defaults to False.
+            objective: Objective function for optimization if optimize is True.
+                Defaults to 'lml'.
 
         Raises:
-            ValidationError: If input and target arrays have incompatible
-                             shapes or contain invalid values.
+            ValidationError: If input and target arrays have incompatible shapes
+                or contain invalid values.
         """
         x, y = validate_input_and_target_data(x, y)
 
-        if self._normalize_inputs:
-            self.x_train, self._x_mean, self._x_std = normalize_input_data(x)
+        if self._standardize_inputs:
+            self.x_train, self._x_mean, self._x_std = standardize_input_data(x)
 
         else:
             self.x_train = x
@@ -195,7 +195,7 @@ class GaussianProcess:
 
         self.kernel._validate_anisotropic_hyperparameter_shape(x)
 
-        self.y_train, self._y_mean, self._y_std = normalize_target_data(y)
+        self.y_train, self._y_mean, self._y_std = standardize_target_data(y)
 
         if optimize:
             self.optimize_hyperparameters(objective)
@@ -209,23 +209,25 @@ class GaussianProcess:
         return_std: bool = False,
         return_cov: bool = False,
     ) -> Arrf64 | tuple[Arrf64, ...]:
-        """
-        Predicts target values for new input data with optional uncertainty
-        estimates.
+        """Predicts target values for new input data.
+
+        This method takes a fitted gaussian process model and calculates the
+        predicted target values on new input points, optionally returning
+        the model's covariance or standard deviation (the square root of the
+        diagonal of the covariance matrix) along with the predicted values.
 
         Args:
-            - x: NumericArray
-                - Input features of shape (n_samples, n_features).
-            - return_std: bool
-                - Whether to return standard deviation of predictions. Defaults
-                  to False.
-            - return_cov: bool
-                - Whether to return full covariance matrix. Defaults to False.
+            x: Input features of shape (n_samples, n_features).
+            return_std: Whether to return standard deviation of predictions.
+                Defaults to False.
+            return_cov: Whether to return full covariance matrix. Defaults to
+                False.
 
         Returns:
-            Arrf64 | tuple[Arrf64, ...]: Predicted mean values, and optionally
-                                         standard deviation and/or covariance
-                                         matrix.
+            Predicted mean values, and optionally standard deviation and/or
+            covariance matrix. If both return_std and return_cov are True,
+                returns (mean, std, cov). All values are returned as NumPy
+                arrays of 64 bit floating point types.
 
         Raises:
             RuntimeError: If the model has not been fitted before prediction.
@@ -240,12 +242,14 @@ class GaussianProcess:
             raise RuntimeError(err_msg)
 
         x = validate_numeric_array(
-            x, "Gaussian Process Prediction input", allow_nonpositive=True
+            x,
+            "Gaussian Process Prediction input",
+            allow_nonpositive=True,
         )
         x = x.reshape(-1, 1) if x.ndim == 1 else x
 
-        # normalize new input data
-        # this is safe even if _normalize_inputs is False because self._x_mean
+        # standardize new input data
+        # this is safe even if _standardize_inputs is False because self._x_mean
         # and self._x_std are initialized to default values of 0 and 1 anyways
         x_norm = (x - self._x_mean) / self._x_std
 
@@ -254,16 +258,19 @@ class GaussianProcess:
 
         y_mean_norm = k_test_train @ self.alpha
 
-        # unnormalize y_mean for returning
+        # unstandardize y_mean for returning
         y_mean = (y_mean_norm * self._y_std) + self._y_mean
 
         if not (return_std or return_cov):
             return y_mean
 
         # compute variance / covariance
-        # v = L^-1 * k_test_train.T
+        # v = L^(-1) * k_test_train.T
         variance = linalg.solve_triangular(
-            self._lower_chol, k_test_train.T, lower=True, check_finite=False
+            self._lower_chol,
+            k_test_train.T,
+            lower=True,
+            check_finite=False,
         )
 
         if return_cov:
@@ -285,13 +292,12 @@ class GaussianProcess:
 
         return y_mean, y_std
 
+    # TODO: Make json based saving
     def save(self, filepath: str | Path) -> None:
-        """
-        Saves the Gaussian Process model to a file.
+        """Saves the Gaussian Process model to a file.
 
         Args:
-            - filepath: str | Path
-                - Path to save the model to.
+            filepath: Path to save the model to.
         """
         if not isinstance(filepath, (Path, str)):
             err_msg = "Error: 'filepath' must be a str type or Path object"
@@ -302,17 +308,16 @@ class GaussianProcess:
         with filepath.open("wb") as f:
             pickle.dump(self, f)
 
+    # TODO: Make json based loading
     @classmethod
     def load(cls, filepath: str | Path) -> "GaussianProcess":
-        """
-        Loads a Gaussian Process model from a file.
+        """Loads a Gaussian Process model from a file.
 
         Args:
-            - filepath: str | Path
-                - Path to the saved model file.
+            filepath: Path to the saved model file.
 
         Returns:
-            GaussianProcess: The loaded model, ready for prediction.
+            The loaded GaussianProcess instance.
 
         Raises:
             TypeError: If the loaded object is not a GaussianProcess instance.
@@ -340,58 +345,79 @@ class GaussianProcess:
 
         if model.alpha.size == 0 or model._lower_chol.size == 0:
             warning_msg = "Warning: Loaded model is not fitted."
-            warnings.warn(warning_msg)
+            warnings.warn(warning_msg, stacklevel=2)
 
         return model
 
     def to_str(self, variable_names: list[str]) -> str:
-        """
-        Generates a string representation of the fitted Gaussian Process as a
-        mathematical expression.
+        """Generates a string representation of the fitted GPR model.
+
+        By the Representer Theorem, the predictive mean function of a fitted
+        Gaussian Process can be expressed as a linear combination of kernel
+        evaluations centered on the training points:
+            μ(x) = Σ ⍺ᵢ * k(x, xᵢ)
+        where ⍺ᵢ is the learned weight at training index i, and k(x, xᵢ)
+        is the scalar covariance between the new input x and the training
+        point xᵢ. We can expand this representation to create a string
+        representation of that summation.
+
+        This project was originally created for Δ-Machine Learning applications,
+        and as such, all model strings are built to be compatible with the
+        format expected by OpenMM for custom string-specified forces.
 
         Args:
-            - variable_names: list[str]
-                - Names of input variables to use in the expression (e.g.,
-                  ['x', 'y']).
+            variable_names: Names of input variables to use in the expression
+                (e.g., ['x', 'y']).
 
         Returns:
-            str: Mathematical expression representing the GP prediction
-                 function.
+            Mathematical string expression representing the GP prediction
+            function.
 
         Warns:
             UserWarning: If the model has not been fitted.
 
         Raises:
-            ValidationError: If variable_names length doesn't match number of
-                             features.
+            ValidationError: If the variable_names length doesn't match number
+                of features in the data the model was trained on.
         """
         if self.alpha.size == 0:
             warning_msg = (
                 "Warning: Gaussian Process is not fitted, returning empty "
                 "string."
             )
-            warnings.warn(warning_msg)
+            warnings.warn(warning_msg, stacklevel=2)
             return ""
 
         variable_names = validate_variable_names(
-            variable_names, self.x_train.shape[1]
+            variable_names,
+            self.x_train.shape[1],
         )
 
-        # normalize variables to match normalized data
-        # if the x normalization option was set to false, the mean and std
-        # are set to 0 and 1 respectively, this will not affect the data in that
-        # case
-        normalized_vars = []
-        for i, var in enumerate(variable_names):
-            normalized_vars.append(
-                f"(({var} - {self._x_mean[i]:.6e}) / {self._x_std[i]:.6e})"
-            )
+        # standardize variables to match standardized data
+        # if the x standardization option was set to false, the mean and std
+        # are set to 0 and 1 respectively and the unstandardization is skipped
+        if self._standardize_inputs:
+            standardized_vars = []
+            for i, var in enumerate(variable_names):
+                standardized_vars.append(
+                    f"(({var} - {self._x_mean[i]:.6e}) / {self._x_std[i]:.6e})",
+                )
+        else:
+            standardized_vars = variable_names
 
         terms = []
-        for x_i, alpha_i in zip(self.x_train, self.alpha):
-            k_str = self.kernel._to_str(normalized_vars, alpha_i, x_i)
+        for x_i, alpha_i in zip(self.x_train, self.alpha, strict=True):
+            # absorb y_std directly into alpha to save OpenMM from
+            # multiplying the entire sum at every integration step
+            alpha_scaled = alpha_i * self._y_std
+            k_str = self.kernel._to_str(standardized_vars, alpha_scaled, x_i)
             terms.append(k_str)
 
-        # target data is always normalized, this unnormalizes it
         full_expression = " + ".join(terms)
-        return f"({full_expression}) * {self._y_std:.6e} + {self._y_mean:.6e}"
+
+        # target data is always standardized, this unstandardizes it if the
+        # unstandardized mean was not already 0
+        if self._y_mean > EPSILON:
+            return f"{full_expression} + {self._y_mean:.6e}"
+
+        return full_expression

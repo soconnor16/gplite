@@ -1,5 +1,4 @@
-"""
-Compares RBF, Matérn, and Periodic kernels on the same data to demonstrate the
+"""Compares RBF, Matérn, and Periodic kernels on the same data to demonstrate the
 importance of proper Kernel selection during training.
 """
 
@@ -31,7 +30,7 @@ kernels = [
 
 results = []
 for name, kernel in kernels:
-    gp = GaussianProcess(kernel, normalize_inputs=True)
+    gp = GaussianProcess(kernel, standardize_inputs=True)
     gp.fit(x_train, y_train, optimize=True)
     y_pred, y_std = gp.predict(x_test, return_std=True, return_cov=False)
     results.append((name, y_pred, y_std))

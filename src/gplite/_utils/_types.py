@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 import numpy as np
@@ -7,18 +8,24 @@ from numpy.typing import NDArray
 # These types are designed to be more flexible and used in the type hints of
 # public function inputs.
 
+# overarching type for singular numeric values
+NumericValue: TypeAlias = int | float | np.integer | np.floating
+
 # overarching type for arrays of numeric values
 NumericArray: TypeAlias = (
-    list[float]
-    | list[int]
-    | tuple[float, ...]
-    | tuple[int, ...]
+    Sequence[NumericValue]
+    | Sequence[Sequence[NumericValue]]
     | NDArray[np.floating]
     | NDArray[np.integer]
 )
 
-# overarching type for singular numeric values
-NumericValue: TypeAlias = int | float | np.integer | np.floating
+# bounds types for custom kernel bounds
+SingleBound: TypeAlias = tuple[NumericValue, NumericValue]
+
+KernelBounds: TypeAlias = dict[
+    str,
+    SingleBound | Sequence[SingleBound] | NDArray[np.number],
+]
 
 ### INTERNAL TYPES ###
 # These types are designed to be more rigid and used in the type hints of
@@ -42,24 +49,22 @@ if TYPE_CHECKING:
 
 
 class SelectionFunction(Protocol):
-    """
-    Protocol for custom active learning point selection strategies.
-    """
+    """Protocol for custom active learning point selection strategies."""
 
-    def __call__(self, learner: "ActiveLearner", n_points: int) -> Arri64: ...
+    def __call__(
+        self,
+        learner: "ActiveLearner",
+        n_points: int,
+    ) -> Sequence[int] | NDArray[np.integer]: ...
 
 
 class ActiveLearningLossFunction(Protocol):
-    """
-    Protocol for custom active learning hyperparameter optimization.
-    """
+    """Protocol for custom active learning hyperparameter optimization."""
 
-    def __call__(self, learner: "ActiveLearner") -> float: ...
+    def __call__(self, learner: "ActiveLearner") -> NumericValue: ...
 
 
 class GaussianProcessLossFunction(Protocol):
-    """
-    Protocol for custom GP hyperparameter optimization.
-    """
+    """Protocol for custom GP hyperparameter optimization."""
 
-    def __call__(self, gp: "GaussianProcess") -> float: ...
+    def __call__(self, gp: "GaussianProcess") -> NumericValue: ...

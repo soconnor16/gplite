@@ -1,6 +1,4 @@
-"""
-Active learning implementation for intelligent data sampling with Gaussian
-Process models.
+"""Active learning implementation for intelligent data sampling.
 
 Active learning aims to achieve high model accuracy with minimal labeled data
 by strategically selecting the most informative points from an unlabeled pool.
@@ -75,26 +73,26 @@ LEARNING_STRATEGIES: dict[str, Callable] = {
 
 
 class ActiveLearner:
-    """
-    Active learning system that intelligently selects training points to
-    minimize required data while maintaining model accuracy.
+    """Active learning class for the automated training of GPR models.
 
-    Uses a Gaussian Process model to identify the most informative points
-    from a pool of unlabeled data based on various selection strategies.
+    The ActiveLearning class is designed to help users train accurate GPR models
+    automatically and with the use of minimal input data. Broadly, active
+    learning is machine learning in which some algorithm is used that allows the
+    user to query a human or external source of information to automatically
+    choose the most beneficial data for model training. Here, we implement
+    "pool-based" active learning strategies in which the model is provided with
+    a pre-generated pool of data and selection functions are used to determine
+    the most important points from that pool, iteratively.
 
     Attributes:
-        - gp: GaussianProcess
-            - The underlying Gaussian Process model.
-        - x_full: Arrf64
-            - Complete pool of input features.
-        - y_full: Arrf64
-            - Complete pool of target values.
-        - x_train: Arrf64
-            - Current training input features.
-        - y_train: Arrf64
-            - Current training target values.
-        - remaining_indices: Arri64
-            - Indices of points not yet in training set.
+        gp: The underlying GaussianProcess instance being fitted during the
+            learning loop.
+        kernel: The underlying model Kernel used for covariance calculation.
+        x_full: Complete pool of input features.
+        y_full: Complete pool of target values.
+        x_train: Current training input features.
+        y_train: Current training target values.
+        remaining_indices: Indices of points not yet in training set.
     """
 
     def __init__(
@@ -102,33 +100,33 @@ class ActiveLearner:
         kernel: Kernel,
         x_full: NumericArray,
         y_full: NumericArray,
+        standardize_inputs: bool = True,
     ) -> None:
-        """
-        Initializes an active learner with the given kernel and data pool.
+        """Initializes an active learner with the given kernel and data pool.
 
         Args:
-            - kernel: Kernel
-                - Kernel instance for the underlying GP model.
-            - x_full: NumericArray
-                - Full dataset input features of shape (n, d).
-            - y_full: NumericArray
-                - Full dataset target values of shape (n,).
+            kernel: Kernel instance for the underlying GP model.
+            x_full: Full dataset input features of shape (n, d).
+            y_full: Full dataset target values of shape (n,).
+            standardize_inputs: Whether to standardize input features to zero
+                mean and unit variance. Defaults to True.
 
         Raises:
-            ValidationError: If kernel is invalid or data arrays are
-                              incompatible.
+            ValidationError:
+                - If the kernel is invalid or data arrays are incompatible.
         """
         if not isinstance(kernel, Kernel):
             err_msg = "Error: 'kernel' must be a valid Kernel instance"
             raise ValidationError(err_msg)
 
         self.x_full, self.y_full = validate_input_and_target_data(
-            x_full, y_full
+            x_full,
+            y_full,
         )
 
         self.kernel = kernel
 
-        self.gp = GaussianProcess(self.kernel)
+        self.gp = GaussianProcess(self.kernel, standardize_inputs)
 
         # initialize training sets and pool of points that remain
         # available to be picked
@@ -138,14 +136,19 @@ class ActiveLearner:
 
         self._initialize_training_data()
 
+    # TODO: Allow users to initialize with custom indices, custom number of
+    # points. Use k-means clustering for initialization.
     def _initialize_training_data(self) -> None:
-        """
+        """Initializes the active learning training set.
+
         Initializes the training set with three points: first, middle, and last
         from the dataset. Sets up the remaining indices pool for active
         selection.
 
         Warns:
-            UserWarning: If dataset has fewer than 3 samples.
+            UserWarning: If the dataset has fewer than 3 samples, as it cannot
+                extract the initial first, middle, and last points. Uses the
+                full dataset instead.
         """
         num_samples = self.x_full.shape[0]
 
@@ -154,7 +157,7 @@ class ActiveLearner:
                 "Warning: Active Learning data has < 3 samples. Using full "
                 "dataset for training."
             )
-            warnings.warn(warning_msg)
+            warnings.warn(warning_msg, stacklevel=2)
 
             self.x_train = self.x_full
             self.y_train = self.y_full
@@ -169,78 +172,71 @@ class ActiveLearner:
 
         # remove indices from training pool
         self.remaining_indices = np.setdiff1d(
-            np.arange(num_samples), initial_indices
+            np.arange(num_samples),
+            initial_indices,
         )
 
         return
 
     def select_next_point(
-        self, selection_function: Callable, n_points: int = 1
+        self,
+        selection_function: Callable,
+        n_points: int = 1,
     ) -> Arri64:
-        """
-        Selects the next point(s) to add to the training set using the given
-        selection strategy.
+        """Selects the next point(s) to add to the training set.
 
         Args:
-            - selection_function: Callable
-                - Function that takes learner and n_points and returns indices.
-            - n_points: int
-                - Number of points to select. Defaults to 1.
+            selection_function: Function that takes learner and n_points and
+                returns indices.
+            n_points: Number of points to select. Defaults to 1.
 
         Returns:
-            Arri64: Indices of selected points from the full dataset.
+            The indices of selected points from the full dataset.
         """
         return selection_function(self, n_points)
 
     def _update_log(self, iteration: int, rmse: f64, log_file: Path) -> None:
-        """
-        Private method to update the log file of the learning loop.
+        """Private method to update the log file of the learning loop.
 
         Args:
-            - iteration: int
-                - The current iteration number being logged.
-            - rmse: f64
-                - The rmse of the model during that iteration.
-            - log_file: Path
-                - The file path to write the log to.
+            iteration: The current iteration number being logged.
+            rmse: The rmse of the model during that iteration.
+            log_file: The file path to write the log to.
         """
         with log_file.open("a", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([iteration, self.x_train.shape[0], rmse])
 
-        return
-
     def _acquire_data(self, strategy: str | Callable, num_points: int) -> None:
-        """
-        Private helper method to append new points to the training set.
+        """Private helper method to append new points to the training set.
 
         Args:
-            - strategy: str
-                - The learning strategy we are using for point selection.
-            - num_points: int
-                - The number of points to select at once.
+            strategy: The learning strategy we are using for point selection.
+            num_points: The number of points to select at once.
         """
         if callable(strategy):
             selection_function = strategy
         else:
             selection_function = LEARNING_STRATEGIES[strategy]
         selected_indices = self.select_next_point(
-            selection_function=selection_function, n_points=num_points
+            selection_function=selection_function,
+            n_points=num_points,
         )
 
-        self.x_train = np.vstack([self.x_train, self.x_full[selected_indices]])
-        self.y_train = np.append(self.y_train, self.y_full[selected_indices])
+        idx_arr = np.asarray(selected_indices, np.int64)
+
+        self.x_train = np.vstack([self.x_train, self.x_full[idx_arr]])
+        self.y_train = np.append(self.y_train, self.y_full[idx_arr])
         self.remaining_indices = np.setdiff1d(
-            self.remaining_indices, selected_indices
+            self.remaining_indices,
+            selected_indices,
         )
-
-        return
 
     def learn(
         self,
         learning_strategy: str | SelectionFunction = "uncertainty",
         max_points: int | None = None,
-        rmse_threshold: NumericValue = np.float64(0.5),
+        rmse_threshold: NumericValue = 0.5,
         optimize_interval: int | None = 1,
         batch_size: int = 1,
         final_optimization_method: str
@@ -249,36 +245,28 @@ class ActiveLearner:
         log_file: str | Path | None = None,
         log_interval: int = 5,
     ) -> None:
-        """
-        Executes the active learning loop, iteratively selecting and adding
-        points until a stopping criterion is met.
+        """Executes the active learning loop described in the module docstring.
 
-        Stopping criteria include: reaching RMSE threshold, exhausting all
+        Early criteria include: reaching RMSE threshold, exhausting all
         points, or reaching max_points limit.
 
         Args:
-            - learning_strategy: str | SelectionFunction
-                - Point selection strategy. Options: 'random', 'uncertainty',
-                  'mae', 'ei_max', 'ei_min', or a custom function. Defaults to
-                  'uncertainty'.
-            - max_points: int | None
-                - Maximum training points to use. Defaults to full dataset size.
-            - rmse_threshold: NumericValue
-                - RMSE target for stopping criterion. Defaults to 0.5.
-            - optimize_interval: int | None
-                - Iterations between hyperparameter optimization. A None value
-                  disables optimization. Defaults to 1.
-            - batch_size: int
-                - Points to add per iteration. Defaults to 1.
-            - final_optimization_method: str | ActiveLearningLossFunction | None
-                - Objective for final optimization. Options: 'mae', 'rmse',
-                  'None', or a custom loss function. A value of None disables
-                  final optimization. Defaults to None.
-            - log_file: str | Path | None
-                - The file path to write csv logging data to. A value of None
-                  disables logging to a file. Defaults to None.
-            - log_interval: int
-                - Iterations between log progress updates. Defaults to 5.
+            learning_strategy: Point selection strategy. Options: 'random',
+                'uncertainty', 'mae', 'ei_max', 'ei_min', or a custom function.
+                Defaults to 'uncertainty'.
+            max_points: Maximum training points to use. Defaults to full dataset
+                size.
+            rmse_threshold: RMSE target for stopping criterion. Defaults to 0.5.
+            optimize_interval: Iterations between hyperparameter optimization.
+                A None value disables optimization. Defaults to 1.
+            batch_size: Points to add per iteration. Defaults to 1.
+            final_optimization_method: Objective for final optimization.
+                Options: 'mae', 'rmse', 'None', or a custom loss function. A
+                value of None disables final optimization. Defaults to None.
+            log_file: The file path to write csv logging data to. A value of
+                None disables logging to a file. Defaults to None.
+            log_interval: Iterations between log progress updates. Defaults to
+                5.
 
         Raises:
             ValidationError: If learning_strategy is not recognized or invalid.
@@ -287,14 +275,18 @@ class ActiveLearner:
             UserWarning: If learning stops early due to errors.
         """
         rmse_threshold = validate_numeric_value(
-            rmse_threshold, "Active Learner RMSE Threshold", False
+            rmse_threshold,
+            "Active Learner RMSE Threshold",
+            False,
         )
 
         if max_points:
             max_points = int(
                 validate_numeric_value(
-                    max_points, "Active Learner Max Points", False
-                )
+                    max_points,
+                    "Active Learner Max Points",
+                    False,
+                ),
             )
         else:
             max_points = len(self.y_full)
@@ -302,21 +294,27 @@ class ActiveLearner:
         if optimize_interval:
             optimize_interval = int(
                 validate_numeric_value(
-                    optimize_interval, "Active Learner Optimize Interval", False
-                )
+                    optimize_interval,
+                    "Active Learner Optimize Interval",
+                    False,
+                ),
             )
         else:
             optimize_interval = None
 
         batch_size = int(
             validate_numeric_value(
-                batch_size, "Batch Size", allow_nonpositive=False
-            )
+                batch_size,
+                "Batch Size",
+                allow_nonpositive=False,
+            ),
         )
         log_interval = int(
             validate_numeric_value(
-                log_interval, "Log Interval", allow_nonpositive=False
-            )
+                log_interval,
+                "Log Interval",
+                allow_nonpositive=False,
+            ),
         )
 
         if isinstance(learning_strategy, str):
@@ -353,11 +351,17 @@ class ActiveLearner:
             # step 1: fit and evaluate model
             self.gp.fit(self.x_train, self.y_train, optimize=should_optimize)
             current_rmse = compute_rmse_across_dataset(
-                self.gp, self.x_full, self.y_full
+                self.gp,
+                self.x_full,
+                self.y_full,
             )
 
             if should_log:
-                logger.info(f"Iteration {iteration + 1}: RMSE: {current_rmse}")
+                logger.info(
+                    "Iteration %d: RMSE: %.6f",
+                    iteration + 1,
+                    current_rmse,
+                )
 
                 if log_file is not None:
                     self._update_log(
@@ -384,33 +388,38 @@ class ActiveLearner:
             try:
                 points_to_add = min(batch_size, remaining_budget)
                 self._acquire_data(
-                    strategy=learning_strategy, num_points=points_to_add
+                    strategy=learning_strategy,
+                    num_points=points_to_add,
                 )
             except ValueError as exc:
                 # usually due to running out of points
                 warning_msg = f"Warning: Learning stopped early: {exc!s}"
-                warnings.warn(warning_msg)
+                warnings.warn(warning_msg, stacklevel=2)
                 break
 
         # exit block
         if final_optimization_method:
             optimize_hyperparameters(
-                learner=self, objective_func=final_optimization_method
+                learner=self,
+                objective_func=final_optimization_method,
             )
 
         final_rmse = compute_rmse_across_dataset(
-            gp=self.gp, x_full=self.x_full, y_full=self.y_full
+            gp=self.gp,
+            x_full=self.x_full,
+            y_full=self.y_full,
         )
 
         if log_file is not None:
             self._update_log(
-                iteration=iteration + 1, rmse=final_rmse, log_file=log_file
+                iteration=iteration + 1,
+                rmse=final_rmse,
+                log_file=log_file,
             )
 
         logger.info(
-            f"{stop_reason}:\n"
-            f"Final RMSE: {final_rmse:.4f}\n"
-            f"Points used: {len(self.y_train)}"
+            "%s:\nFinal RMSE: %.6f\nPoints used: %d",
+            stop_reason,
+            final_rmse,
+            len(self.y_train),
         )
-
-        return

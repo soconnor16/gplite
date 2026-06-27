@@ -1,5 +1,4 @@
-"""
-Demonstrates how to export a fitted Gaussian Process as a raw mathematical
+"""Demonstrates how to export a fitted Gaussian Process as a raw mathematical
 string representation.
 """
 

@@ -1,5 +1,4 @@
-"""
-Intro Gaussian Process example. This should be sufficient for most regular usage
+"""Intro Gaussian Process example. This should be sufficient for most regular usage
 and exposes the core API and most commonly used settings.
 """
 
@@ -10,9 +9,7 @@ from numpy.typing import NDArray
 
 
 def target_function(x: NDArray) -> NDArray:
-    """
-    Synthetic target function we will be fitting the model to.
-    """
+    """Synthetic target function we will be fitting the model to."""
     return np.sin(x) * np.cos(0.5 * x) + 0.2 * np.sin(3 * x)
 
 

@@ -1,11 +1,12 @@
-"""
-Composite kernel classes for combining multiple kernels through addition
-or multiplication.
+"""Kernel classes for combining kernels through addition or multiplication.
 
-Kernels can be combined to create more expressive covariance functions:
+Composite kernels are particularly useful for data that contains multiple
+distinct patterns, such as periodicity with random noise.
 
-Additive Kernels (K₁ + K₂):
-    K_sum(x, x') = K₁(x, x') + K₂(x, x')
+Composite kernels can be constructed in two ways:
+
+Additive Kernels (K_1 + K_2):
+    K_sum(x, x') = K_1(x, x') + K_2(x, x')
 
     The resulting function can be seen as the sum of independent functions,
     each drawn from one of the component GPs. Useful for modeling functions
@@ -13,13 +14,13 @@ Additive Kernels (K₁ + K₂):
 
     Gradients are computed independently: ∂K_sum/∂θᵢ = ∂Kᵢ/∂θᵢ
 
-Product Kernels (K₁ * K₂):
-    K_prod(x, x') = K₁(x, x') * K₂(x, x')
+Product Kernels (K_1 * K_2):
+    K_prod(x, x') = K_1(x, x') * K_2(x, x')
 
     The product kernel models interactions between components. Useful when
     one pattern modulates another (e.g., varying amplitude over time).
 
-    Gradients use the product rule:
+    Gradients are combined via the product rule:
     ∂K_prod/∂θ₁ = (∂K₁/∂θ₁) * K₂
     ∂K_prod/∂θ₂ = K₁ * (∂K₂/∂θ₂)
 """
@@ -34,19 +35,17 @@ from gplite.Kernels._base import Kernel
 
 
 class CompositeKernel(Kernel):
-    """
-    Abstract base class for composite kernels that combine multiple kernels.
-    Provides common functionality for managing child kernels and their
-    hyperparameters.
+    """Abstract base class for composite kernels.
+
+    This provides shared functionality for managing child kernels and their
+    hyperparameters to both additive and summation kernels.
     """
 
     def __init__(self, *kernels: Kernel) -> None:
-        """
-        Initializes a composite kernel with one or more child kernels.
+        """Initializes a composite kernel with one or more child kernels.
 
         Args:
-            - kernels: Kernel
-                - Variable number of kernel instances to combine.
+            kernels: Variable number of kernel instances to combine.
 
         Raises:
             ValidationError: If any operand is not a valid Kernel instance.
@@ -55,8 +54,7 @@ class CompositeKernel(Kernel):
         self._validate_kernels()
 
     def _validate_kernels(self) -> None:
-        """
-        Validates that all child kernels are valid Kernel instances.
+        """Validates that all child kernels are valid Kernel instances.
 
         Raises:
             ValidationError: If any kernel is not a Kernel instance.
@@ -67,27 +65,44 @@ class CompositeKernel(Kernel):
                 raise ValidationError(err_msg)
 
     @property
-    def bounds(self) -> list[tuple[f64, f64]]:
-        """
-        Returns the concatenated bounds from all child kernels.
+    def bounds(self) -> dict[str, list[tuple[f64, f64]]]:
+        """Returns a combined dictionary of bounds from all child kernels.
+
+        Composite kernels may be comprised of two or more separate kernels
+        of the same kernel class. To maintain readability, each kernel is
+        given a unique name determined by their index in the internal kernel
+        list.
 
         Returns:
-            list[tuple[f64, f64]]: Combined list of hyperparameter bounds.
+            Dictionary of combined hyperparameter bounds.
         """
+        composite_bounds = {}
+
+        for i, k in enumerate(self.kernels):
+            for param_name, bound_list in k.bounds.items():
+                # creates unique keys like: "kernel_0_length_scale" in case
+                # there are multiple of the same kind of kernel in a composite
+                # kernel
+                composite_bounds[f"kernel_{i}_{param_name}"] = bound_list
+
+        return composite_bounds
+
+    @property
+    def _bounds(self) -> list[tuple[f64, f64]]:
+        """Exposes a flat bound list defined for the kernel hyperparameters."""
         all_bounds = []
 
         for k in self.kernels:
-            all_bounds.extend(k.bounds)
+            all_bounds.extend(k._bounds)
 
         return all_bounds
 
     @property
     def hyperparameters(self) -> tuple[str, ...]:
-        """
-        Returns the concatenated hyperparameter names from all child kernels.
+        """Returns the concatenated hyperparameter names from all child kernels.
 
         Returns:
-            tuple[str, ...]: Combined tuple of hyperparameter names.
+            A combined tuple of hyperparameter names.
         """
         all_hyperparameters = []
 
@@ -97,42 +112,41 @@ class CompositeKernel(Kernel):
         return tuple(all_hyperparameters)
 
     def get_params(self) -> Arrf64:
-        """
-        Returns the concatenated hyperparameters from all child kernels.
+        """Returns the concatenated hyperparameters from all child kernels.
 
         Returns:
-            Arrf64: Flat array of all hyperparameter values.
+            Flat array of all hyperparameter values.
         """
         params_list = [k.get_params() for k in self.kernels]
 
         return np.concatenate(params_list)
 
     def set_params(
-        self, params: NumericArray | NumericValue, _validate: bool = True
+        self,
+        params: NumericArray | NumericValue,
+        _validate: bool = True,
     ) -> None:
-        """
-        Distributes and sets hyperparameters to each child kernel.
+        """Distributes and sets hyperparameters to each child kernel.
 
         Args:
-            - params: NumericArray | NumericValue
-                - Flat array of hyperparameters to distribute across child
-                  kernels.
-            - _validate: bool
-                - Whether to validate the hyperparameters before setting them.
-                This is intended to be used for internal usage such as
+            params: Flat array of hyperparameters to distribute across child
+                kernels.
+            _validate: Whether to validate the hyperparameters before setting
+                them. This is intended to be used for internal usage such as
                 optimization loops where skipping the small overhead from
                 validation saves a lot of time. If _validate is false, it is
                 assumed you know what you are doing. Defaults to True.
         """
         if _validate:
             if not hasattr(params, "__getitem__") and not isinstance(
-                params, (int, float, np.integer, np.floating)
+                params,
+                (int, float, np.integer, np.floating),
             ):
                 err_msg = (
                     "Error: Composite kernels require an array-like object "
                     "of hyperparameters, but received type "
-                    f"'{type(params).__name__}'. Ensure you are passing a list, "
-                    "tuple, or numpy array."
+                    f"'{type(params).__name__}'. Ensure you are passing a list,"
+                    " tuple, or numpy array."
                 )
                 raise ValidationError(err_msg)
 
@@ -147,38 +161,21 @@ class CompositeKernel(Kernel):
             k.set_params(kernel_params, _validate)
             idx += num_params
 
-        return
-
-    def _get_expanded_bounds(self) -> list[tuple[f64, f64]]:
-        """
-        Returns expanded bounds from all child kernels for optimization.
-
-        Returns:
-            list[tuple[f64, f64]]: Combined expanded bounds list.
-        """
-        all_expanded_bounds = []
-
-        for k in self.kernels:
-            all_expanded_bounds.extend(k._get_expanded_bounds())
-
-        return all_expanded_bounds
-
     def _to_str(
-        self, variable_names: list[str], alpha: f64, training_point: Arrf64
+        self,
+        variable_names: list[str],
+        alpha: f64,
+        training_point: Arrf64,
     ) -> str:
-        """
-        Creates a string representation of the composite kernel expression.
+        """Creates a string representation of the composite kernel expression.
 
         Args:
-            - variable_names: list[str]
-                - Names of input variables.
-            - alpha: f64
-                - Weight coefficient for the expression.
-            - training_point: Arrf64
-                - Training point to center expression on.
+            variable_names: Names of input variables.
+            alpha: Weight coefficient for the expression.
+            training_point: Training point to center expression on.
 
         Returns:
-            str: Mathematical expression string for the composite kernel.
+            Mathematical expression string for the composite kernel.
 
         Raises:
             NotImplementedError: If called on an unknown composite kernel type.
@@ -201,55 +198,53 @@ class CompositeKernel(Kernel):
         return f"( {alpha:.6e} * ( {combined_parts} ) )"
 
     def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
-        """
-        Validates anisotropic hyperparameter shapes for all child kernels.
+        """Validates anisotropic hyperparameter shapes for all child kernels.
 
         Args:
-            - x: Arrf64
-                - Input data array used for shape validation.
+            x: Input data array used for shape validation.
         """
         for k in self.kernels:
             k._validate_anisotropic_hyperparameter_shape(x)
 
     def _validate_input_data(
-        self, x1: NumericArray, x2: NumericArray, name1: str, name2: str
+        self,
+        x1: NumericArray,
+        x2: NumericArray,
+        name1: str,
+        name2: str,
     ) -> tuple[Arrf64, Arrf64]:
-        """
-        Validates input data using the first child kernel's validation.
+        """Validates input data before it is used for computation.
 
         Args:
-            - x1: NumericArray
-                - First input array.
-            - x2: NumericArray
-                - Second input array.
-            - name1: str
-                - Name of first array for error messages.
-            - name2: str
-                - Name of second array for error messages.
+            x1: First input array.
+            x2: Second input array.
+            name1: Name of first array for error messages.
+            name2: Name of second array for error messages.
 
         Returns:
-            tuple[Arrf64, Arrf64]: Validated input arrays.
+            A tuple of the validated inputs.
         """
         return self.kernels[0]._validate_input_data(x1, x2, name1, name2)
 
 
 class AdditiveKernel(CompositeKernel):
-    """
-    Composite kernel representing the sum of multiple kernels.
-    K_sum(x, x') = K1(x, x') + K2(x, x') + ...
+    """Composite kernel representing the sum of multiple kernels.
+
+    Additive kernels are defined as:
+        K_additive(x, x') = K1(x, x') + K2(x, x') + ...
     """
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
-        """
-        Computes the diagonal of the additive kernel matrix. The diagonal
-        of a sum of kernels is the sum of each kernel's diagonal.
+        """Computes the diagonal of the additive kernel matrix.
+
+        Additive kernel diagonals are computed via a of summation of each of its
+            child kernels' diagonals.
 
         Args:
-            - x: Arrf64
-                - Input array of shape (n, d).
+            x: Input array of shape (n, d).
 
         Returns:
-            Arrf64: Sum of child kernel diagonals with shape (n,).
+            Sum of child kernel diagonals.
         """
         diag = self.kernels[0]._compute_diag(x)
 
@@ -259,17 +254,14 @@ class AdditiveKernel(CompositeKernel):
         return diag
 
     def _compute(self, x1: Arrf64, x2: Arrf64) -> Arrf64:
-        """
-        Computes the sum of kernel matrices from all child kernels.
+        """Computes the sum of kernel matrices from all child kernels.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array.
+            x2: Second input array.
 
         Returns:
-            Arrf64: Sum of kernel matrices.
+            Sum of child kernel matrices.
         """
         kernel_matrix = self.kernels[0]._compute(x1, x2)
 
@@ -279,20 +271,18 @@ class AdditiveKernel(CompositeKernel):
         return kernel_matrix
 
     def _gradient(self, x1: Arrf64, x2: Arrf64) -> tuple[Arrf64, ...]:
-        """
-        Computes gradients from all child kernels. Gradients are independent
-        under addition.
+        """Computes gradients from all child kernels.
+
+        Additive kernel gradients are independent under addition and are
+            computed via a summation of the child kernel gradients.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array.
+            x2: Second input array.
 
         Returns:
-            tuple[Arrf64, ...]: Concatenated gradients from all child kernels.
+            Concatenated gradients from all child kernels.
         """
-        # gradients are independent under addition
         all_grads = []
 
         for k in self.kernels:
@@ -301,24 +291,22 @@ class AdditiveKernel(CompositeKernel):
         return tuple(all_grads)
 
     def _compute_with_gradient(
-        self, x1: Arrf64, x2: Arrf64
+        self,
+        x1: Arrf64,
+        x2: Arrf64,
     ) -> tuple[Arrf64, tuple[Arrf64, ...]]:
-        """
-        Computes kernel matrix and gradients together for efficiency.
+        """Computes kernel matrix and gradients together for efficiency.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array.
+            x2: Second input array.
 
         Returns:
-            tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix sum and
-                concatenated gradients.
+            Composite kernel matrix and gradients.
         """
         results = [k._compute_with_gradient(x1, x2) for k in self.kernels]
 
-        k_matrices, grad_list = zip(*results)
+        k_matrices, grad_list = zip(*results, strict=True)
 
         k_total = k_matrices[0].copy()
         for k in k_matrices[1:]:
@@ -331,41 +319,38 @@ class AdditiveKernel(CompositeKernel):
         return k_total, tuple(all_grads)
 
     def __add__(self, other: Kernel) -> "AdditiveKernel":
-        """
-        Adds another kernel to this additive kernel, flattening the structure.
+        """Adds another kernel to this additive kernel.
 
         Args:
-            - other: Kernel
-                - Kernel to add.
+            other: Kernel to add.
 
         Returns:
-            AdditiveKernel: New additive kernel containing all component
-                            kernels.
+            New additive kernel containing all component kernels.
         """
         # flatten: (A + B) + C -> AdditiveKernel(A, B, C)
         if isinstance(other, AdditiveKernel):
             return AdditiveKernel(*(self.kernels + other.kernels))
-        return AdditiveKernel(*(self.kernels + [other]))
+        return AdditiveKernel(*([*self.kernels, other]))
 
 
 class ProductKernel(CompositeKernel):
-    """
-    Composite kernel representing the product of multiple kernels.
-    K_prod(x, x') = K1(x, x') * K2(x, x') * ...
+    """Composite kernel representing the product of multiple kernels.
+
+    Product kernels are defined as:
+        K_prod(x, x') = K1(x, x') * K2(x, x') * ...
     """
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
-        """
-        Computes the diagonal of the product kernel matrix. The diagonal
-        of a product of kernels is the element-wise product of each
-        kernel's diagonal.
+        """Computes the diagonal of the product kernel matrix.
+
+        Product kernels  diagonals are computed via the element-wise product of
+            each of the child kernels' diagonals.
 
         Args:
-            - x: Arrf64
-                - Input array of shape (n, d).
+            x: Input array of shape (n, d).
 
         Returns:
-            Arrf64: Product of child kernel diagonals with shape (n,).
+            Product of child kernel diagonals as a flat array.
         """
         diag = self.kernels[0]._compute_diag(x)
 
@@ -375,18 +360,14 @@ class ProductKernel(CompositeKernel):
         return diag
 
     def _compute(self, x1: Arrf64, x2: Arrf64) -> Arrf64:
-        """
-        Computes the element-wise product of kernel matrices from all child
-        kernels.
+        """Computes the product of kernel matrices from all child kernels.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array.
+            x2: Second input array.
 
         Returns:
-            Arrf64: Product of kernel matrices.
+            Product of child kernel matrices.
         """
         result = self.kernels[0]._compute(x1, x2)
 
@@ -396,22 +377,18 @@ class ProductKernel(CompositeKernel):
         return result
 
     def _gradient(self, x1: Arrf64, x2: Arrf64) -> tuple[Arrf64, ...]:
-        """
-        Computes gradients using the product rule across all child kernels.
-        d(ABC)/d_param = (dA * BC) + (dB * AC) + ...
+        """Computes gradients using the product rule across all child kernels.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array.
+            x2: Second input array.
 
         Returns:
-            tuple[Arrf64, ...]: Gradients scaled by product of other kernels.
+            Tuple of gradients scaled by product of other kernels.
         """
         # product rule: d(ABC)/dθ = (dA * BC) + (dB * AC) + ...
         results = [k._compute_with_gradient(x1, x2) for k in self.kernels]
-        k_matrices, grad_list = zip(*results)
+        k_matrices, grad_list = zip(*results, strict=True)
         all_grads = []
         for i, k_grads in enumerate(grad_list):
             k_other = np.ones_like(k_matrices[0])
@@ -424,24 +401,22 @@ class ProductKernel(CompositeKernel):
         return tuple(all_grads)
 
     def _compute_with_gradient(
-        self, x1: Arrf64, x2: Arrf64
+        self,
+        x1: Arrf64,
+        x2: Arrf64,
     ) -> tuple[Arrf64, tuple[Arrf64, ...]]:
-        """
-        Computes kernel product and gradients together for efficiency.
+        """Computes kernel matrix and gradients together for efficiency.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array.
+            x2: Second input array.
 
         Returns:
-            tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix product and
-                product-rule scaled gradients.
+            Composite kernel matrix and gradients.
         """
         results = [k._compute_with_gradient(x1, x2) for k in self.kernels]
 
-        k_matrices, grad_list = zip(*results)
+        k_matrices, grad_list = zip(*results, strict=True)
 
         k_total = k_matrices[0].copy()
         for k in k_matrices[1:]:
@@ -462,18 +437,15 @@ class ProductKernel(CompositeKernel):
         return k_total, tuple(all_grads)
 
     def __mul__(self, other: Kernel) -> "ProductKernel":
-        """
-        Multiplies another kernel with this product kernel, flattening the
-        structure.
+        """Multiplies another kernel with this product kernel.
 
         Args:
-            - other: Kernel
-                - Kernel to multiply.
+            other: Kernel to multiply.
 
         Returns:
-            ProductKernel: New product kernel containing all component kernels.
+            New product kernel containing all component kernels.
         """
         # flatten: (A * B) * C -> ProductKernel(A, B, C)
         if isinstance(other, ProductKernel):
             return ProductKernel(*(self.kernels + other.kernels))
-        return ProductKernel(*(self.kernels + [other]))
+        return ProductKernel(*([*self.kernels, other]))

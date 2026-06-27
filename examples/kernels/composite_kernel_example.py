@@ -1,5 +1,4 @@
-"""
-Demonstrates how to combine multiple kernels to model more complex data patterns
+"""Demonstrates how to combine multiple kernels to model more complex data patterns
 that a single kernel might struggle with.
 """
 
@@ -9,9 +8,7 @@ from gplite import GaussianProcess, PeriodicKernel, RBFKernel
 
 
 def target_function(x):
-    """
-    Synthetic data for demonstration.
-    """
+    """Synthetic data for demonstration."""
     trend = 0.05 * x**2
     periodicity = 2 * np.sin(x)
 

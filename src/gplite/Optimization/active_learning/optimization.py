@@ -1,5 +1,4 @@
-"""
-Hyperparameter optimization for active learning models.
+"""Hyperparameter optimization for active learning models.
 
 Unlike GP optimization which uses log marginal likelihood, active learning
 optimization directly minimizes prediction error (RMSE or MAE) across the
@@ -23,6 +22,7 @@ from scipy.optimize import minimize
 from scipy.stats import qmc
 
 from gplite._utils._constants import GLOBAL_MAXITER, LOCAL_MAXITER, N_REFINE
+from gplite._utils._errors import ValidationError
 from gplite._utils._types import ActiveLearningLossFunction, Arrf64
 from gplite.Optimization.active_learning.loss_functions import (
     mean_absolute_error,
@@ -45,21 +45,22 @@ def _get_objective_wrapper(
     learner: "ActiveLearner",
     objective_func: str | ActiveLearningLossFunction | None,
 ) -> Callable | None:
-    """
-    Validates objective functions and returns SciPy-compatible wrappers for the
-    main optimization loop.
+    """Validates objective functions and returns wrappers for optimization.
 
     Args:
-        - learner: ActiveLearner
-            - The ActiveLearner instance whose hyperparameters are being
-              optimized.
-        - objective_func: str | ActiveLearningLossFunction | None
-            - The objective function used to calculate the loss value to be
-              minimized during optimization.
+        learner: The ActiveLearner instance whose hyperparameters are being
+            optimized.
+        objective_func: The objective function used to calculate the loss
+            value to be minimized during optimization.
 
     Returns:
-        Callable | None: The loss function or None if final optimization is to
-                         be skipped.
+        The loss function, or None if final optimization is to be skipped.
+
+    Raises:
+        ValidationError: If the objective function is not a string, Callable, or
+            "None".
+        ValueError: If the objective function is a string, but not a valid
+            built-in objective function choice.
     """
     # handle "None" (skip optimization)
     if objective_func is None or (
@@ -82,11 +83,11 @@ def _get_objective_wrapper(
 
         return custom_wrapper
 
-    # handle Built-in Strings
+    # if the objective func is not a callable type, it must be a string by this
+    # point
     if not isinstance(objective_func, str):
-        raise ValueError(
-            "Error: 'objective_func' must be a string, Callable, or None."
-        )
+        err_msg = "Error: 'objective_func' must be a string, Callable, or None."
+        raise ValidationError(err_msg)
 
     obj_lower = objective_func.lower()
     if obj_lower not in LOSS_FUNCTIONS:
@@ -114,21 +115,22 @@ def _generate_starting_points(
     initial_theta: Arrf64,
     bounds: list[tuple[float, float]],
     n_restarts: int,
-) -> list[np.ndarray]:
-    """
-    Generates starting points for optimization using Latin Hypercube Sampling
-    in log-space.
+) -> list[Arrf64]:
+    """Generates starting points for optimization with Latin Hypercube Sampling.
+
+    Sampling is performed in log-space. Because Gaussian Process hyperparameters
+    (such as length scales and variances) are strictly positive and can span
+    multiple orders of magnitude, uniform sampling in linear space severely
+    under-samples small values. Log-space sampling ensures the optimizer
+    explores all orders of magnitude uniformly.
 
     Args:
-        - initial_theta: Arrf64
-            - Current hyperparameter values.
-        - bounds: list[tuple[float, float]]
-            - Bounds for each hyperparameter.
-        - n_restarts: int
-            - Number of random starting points to generate.
+        initial_theta: Current hyperparameter values.
+        bounds: Bounds for each hyperparameter.
+        n_restarts: Number of random starting points to generate.
 
     Returns:
-        list[np.ndarray]: List of starting points including initial_theta.
+        List of starting points including initial_theta.
     """
     starting_points = [initial_theta]
 
@@ -143,7 +145,7 @@ def _generate_starting_points(
                 log_low, log_high = np.log10(low), np.log10(high)
                 log_sample = log_low + sample[j] * (log_high - log_low)
                 theta.append(10**log_sample)
-            starting_points.append(np.array(theta))
+            starting_points.append(np.asarray(theta, dtype=np.float64))
 
     return starting_points
 
@@ -153,9 +155,10 @@ def optimize_hyperparameters(
     objective_func: str | ActiveLearningLossFunction | None,
     n_restarts: int = 0,
 ) -> None:
-    """
-    Optimizes active learner hyperparameters using a hybrid two-phase
-    optimization strategy with prediction error metrics.
+    """Optimizes active learner hyperparameters.
+
+    Hyperparameters are optimized using a hybrid two-phase optimization strategy
+    described below:
 
     Phase 1 (Global Screening): Runs quick optimizations from multiple
     starting points to identify promising basins.
@@ -164,17 +167,11 @@ def optimize_hyperparameters(
     thorough optimization to find the best solution.
 
     Args:
-        - learner: ActiveLearner
-                - The active learner to optimize.
-        - objective_func: str | ActiveLearningLossFunction | None
-            - Loss function to minimize. Options: 'rmse', 'mae', 'none'/'no'
-              (skip optimization).
-        - n_restarts: int
-            - Number of random restarts for global screening. Defaults to 0
-              (only optimize from current params).
-
-    Raises:
-        ValueError: If objective_func is not a recognized loss function.
+        learner: The active learner to optimize.
+        objective_func: Loss function to minimize. Options: 'rmse', 'mae',
+            'none'/'no' (skip optimization).
+        n_restarts: Number of random restarts for global screening. Defaults to
+            0 (only optimize from current params).
     """
     func_wrapper = _get_objective_wrapper(learner, objective_func)
 
@@ -186,11 +183,13 @@ def optimize_hyperparameters(
     initial_theta = np.concatenate([initial_kernel_params, initial_noise])
 
     noise_bounds = [(1e-6, 1e1)]
-    bounds = learner.gp.kernel._get_expanded_bounds() + noise_bounds
+    bounds = learner.gp.kernel._bounds + noise_bounds
 
     # generate all starting points
     starting_points = _generate_starting_points(
-        initial_theta, bounds, n_restarts
+        initial_theta,
+        bounds,
+        n_restarts,
     )
 
     # phase 1: global screening

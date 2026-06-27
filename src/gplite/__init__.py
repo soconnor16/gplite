@@ -9,8 +9,8 @@ from gplite.Kernels import (
 
 __all__ = [
     "ActiveLearner",
-    "GaussianProcess",
     "ConstantKernel",
+    "GaussianProcess",
     "MaternKernel",
     "PeriodicKernel",
     "RBFKernel",
