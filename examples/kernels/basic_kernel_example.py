@@ -1,5 +1,4 @@
-"""
-Intro Kernel demonstration. This should be sufficient for most regular usage
+"""Intro Kernel demonstration. This should be sufficient for most regular usage
 and exposes the core API.
 """
 

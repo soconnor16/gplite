@@ -1,6 +1,4 @@
-"""
-Constant kernel implementation that returns a constant covariance value
-regardless of input distance.
+"""Constant kernel class for modeling data with a constant variance.
 
 The constant kernel is defined as:
 
@@ -14,15 +12,22 @@ This kernel is primarily used as a component in composite kernels:
     - Added to other kernels: provides a baseline/bias term
     - Multiplied with other kernels: acts as a scaling factor (amplitude)
 
-For example, c * RBF(l) scales the RBF kernel's output magnitude.
+More detailed documentation about many methods below can be found in the Kernel
+base class in 'Kernels/_base.py'.
 """
-
-from typing import cast
 
 import numpy as np
 
-from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
+from gplite._utils._data import resolve_bounds_shape
+from gplite._utils._types import (
+    Arrf64,
+    KernelBounds,
+    NumericArray,
+    NumericValue,
+    f64,
+)
 from gplite._utils._validation import (
+    validate_bounds_dict,
     validate_isotropic_hyperparameter,
     validate_set_params,
 )
@@ -30,177 +35,201 @@ from gplite.Kernels._base import Kernel
 
 
 class ConstantKernel(Kernel):
-    """
-    Constant kernel that returns the same covariance value for all input pairs.
-    K(x, x') = c, where c is the constant hyperparameter.
+    """Constant kernel that returns the same covariance value for all inputs.
 
-    Useful as a bias term when combined with other kernels.
+    The constant kernel is defined as:
+        K(x, x') = c
+    where c is the constant hyperparameter.
+
+    Attributes:
+        bounds: A dictionary of kernel hyperparameter names and their current
+            bounds.
+        hyperparameters: A tuple of the kernel's hyperparameter names as
+            strings.
+        isotropic: A boolean indicating whether the kernel is isotropic.
+        constant: The current value for the constant hyperparameter.
     """
 
     constant: Arrf64
 
-    def __init__(self, constant: NumericValue) -> None:
-        """
-        Initializes a constant kernel with the specified constant value.
+    def __init__(
+        self,
+        constant: NumericValue,
+        bounds: KernelBounds | None = None,
+    ) -> None:
+        """Initializes a constant kernel.
 
         Args:
-            - constant: NumericValue
-                - The constant covariance value. Must be positive.
+            constant: The constant covariance value. Must be positive.
+
+            bounds: Custom hyperparameter bounds. Must be a dictionary where
+                keysare the hyperparameter names (strings) and values are either
+                a single tuple (min, max) or a list of tuples [(min, max), ...].
+                For example: {"constant": (5, 10)}. Defaults to None.
 
         Raises:
             ValidationError: If constant is not a positive numeric value.
         """
         self.constant = validate_isotropic_hyperparameter(
-            constant, "Constant Kernel Constant"
+            constant,
+            "Constant Kernel Constant",
         )
+
+        self._bound_config = {"constant": [(f64(1e-6), f64(1e5))]}
+
+        if bounds is not None:
+            validated_bounds = validate_bounds_dict(
+                bounds=bounds,
+                expected_params=["constant"],
+                kernel_name="ConstantKernel",
+            )
+            self._bound_config.update(validated_bounds)
 
     @property
     def hyperparameters(self) -> tuple[str, ...]:
-        """
-        Returns the names of the kernel's hyperparameters.
+        """Defines kernel hyperparameters.
 
         Returns:
-            tuple[str, ...]: Tuple containing 'constant'.
+            The names of the hyperparameters in a given kernel as a tuple of
+            strings.
         """
         return ("constant",)
 
     @property
-    def bounds(self) -> list[tuple[f64, f64]]:
-        """
-        Returns the optimization bounds for the constant hyperparameter.
+    def bounds(self) -> dict[str, list[tuple[f64, f64]]]:
+        """Defines kernel bounds.
 
         Returns:
-            list[tuple[f64, f64]]: Bounds for constant in range [1e-6, 1e5].
+            A dictionary with the kernel's hyperparameter names and their
+            respective bounds.
         """
-        return [(f64(1e-6), f64(1e5))]
+        return {
+            "constant": resolve_bounds_shape(
+                self._bound_config["constant"],
+                1,  # the constant kernel is always isotropic
+                "constant",
+            ),
+        }
+
+    @property
+    def _bounds(self) -> list[tuple[f64, f64]]:
+        """Exposes the bounds defined for the kernel hyperparameters internally.
+
+        Returns:
+            A flat list of tuples representing the bounds for a kernel's
+            hyperparameters.
+        """
+        return self.bounds["constant"]
 
     def _compute(self, x1: Arrf64, x2: Arrf64) -> Arrf64:
-        """
-        Computes the constant kernel matrix filled with the constant value.
+        """Computes the similarity matrix of a kernel.
 
         Args:
-            - x1: Arrf64
-                - First input array of shape (n, d).
-            - x2: Arrf64
-                - Second input array of shape (m, d).
+            x1: First array of points used to compute the kernel matrix.
+            x2: Second array of points used to compute the kernel matrix.
 
         Returns:
-            Arrf64: Kernel matrix of shape (n, m) filled with constant value.
+            Kernel covariance matrix calculated between x1 and x2.
         """
         return np.full((x1.shape[0], x2.shape[0]), self.constant[0])
 
     def _gradient(self, x1: Arrf64, x2: Arrf64) -> tuple[Arrf64, ...]:
-        """
-        Computes the gradient of the kernel with respect to the constant.
+        """Compute the kernel's gradient with respect to its hyperparameters.
 
         Args:
-            - x1: Arrf64
-                - First input array of shape (n, d).
-            - x2: Arrf64
-                - Second input array of shape (m, d).
+            x1: First array of points used to compute the kernel gradient.
+            x2: Second array of points used to compute the kernel gradient.
 
         Returns:
-            tuple[Arrf64, ...]: Gradient tensor of ones with shape (n, m, 1).
+            Tuple of a kernel's gradients with respect to each of its
+            hyperparameters.
         """
         return (np.ones((x1.shape[0], x2.shape[0], 1)),)
 
-    def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
-        """No-op since constant kernel has no anisotropic hyperparameters."""
-        pass
-
-    def get_params(self) -> Arrf64:
-        """
-        Returns the current constant hyperparameter value.
-
-        Returns:
-            Arrf64: Array containing the constant value.
-        """
-        return self.constant
-
-    def set_params(
-        self, params: NumericArray | NumericValue, _validate: bool = True
-    ) -> None:
-        """
-        Sets new hyperparameter values for the kernel.
-
-        Args:
-            - params: NumericArray | NumericValue
-                - New constant value as an array.
-            - _validate: bool
-                - Whether to validate the hyperparameters before setting them.
-                    This is intended to be used for internal usage such as
-                    optimization loops where skipping the small overhead from
-                    validation saves a lot of time. If _validate is false, it is
-                    assumed you know what you are doing. Defaults to True.
-
-        Raises:
-            ValidationError: If params contains invalid values.
-        """
-        if _validate:
-            self.constant = validate_set_params(
-                params, "New Constant Kernel Hyperparameter", True, 1
-            )
-        else:
-            self.constant = np.asarray(params, dtype=np.float64).ravel()
-
     def _compute_with_gradient(
-        self, x1: Arrf64, x2: Arrf64
+        self,
+        x1: Arrf64,
+        x2: Arrf64,
     ) -> tuple[Arrf64, tuple[Arrf64, ...]]:
-        """
-        Computes kernel matrix and gradient together.
+        """Computes the kernel's matrix and gradients together.
 
         Args:
-            - x1: Arrf64
-                - First input array.
-            - x2: Arrf64
-                - Second input array.
+            x1: First input array of shape (n, d).
+            x2: Second input array of shape (m, d).
 
         Returns:
-            tuple[Arrf64, tuple[Arrf64, ...]]: Kernel matrix and gradient tuple.
+            Tuple containing the kernel matrix K of shape (n, m) and a
+            tuple of gradient tensors.
         """
         K = np.full((x1.shape[0], x2.shape[0]), self.constant[0])
         grad = np.ones((x1.shape[0], x2.shape[0], 1))
 
         return K, (grad,)
 
-    def _to_str(
-        self, variable_names: list[str], alpha: f64, training_point: Arrf64
-    ) -> str:
-        """
-        Creates a string representation of the constant kernel term.
-
-        Args:
-            - variable_names: list[str]
-                - Input variable names (unused).
-            - alpha: f64
-                - Weight coefficient.
-            - training_point: Arrf64
-                - Training point (unused).
+    def get_params(self) -> Arrf64:
+        """Returns the current constant hyperparameter value.
 
         Returns:
-            str: String representation 'alpha * constant'.
+            Single-valued array containing the constant value.
         """
-        return f"{alpha:.6e} * {self.constant[0]:.6e}"
+        return self.constant
+
+    def set_params(
+        self,
+        params: NumericArray | NumericValue,
+        _validate: bool = True,
+    ) -> None:
+        """Method to set new hyperparameter values for the kernel.
+
+        Args:
+            params: New hyperparameter values to be set for the kernel.
+            _validate: Whether to validate the hyperparameters before setting
+                them. This is intended to be used for internal usage such as
+                optimization loops where skipping the small overhead from
+                validation saves a lot of time. If _validate is false, it is
+                assumed you know what you are doing. Defaults to True.
+        """
+        if _validate:
+            self.constant = validate_set_params(
+                params,
+                "New Constant Kernel Hyperparameter",
+                True,
+                1,
+            )
+        else:
+            self.constant = np.asarray(params, dtype=np.float64).ravel()
+
+    def _to_str(
+        self,
+        variable_names: list[str],
+        alpha: f64,
+        training_point: Arrf64,
+    ) -> str:
+        """Creates a string representation of a kernel at a single data point.
+
+        Args:
+            variable_names: Names of variables to be used in the string
+                (e.g., ['x', 'y']).
+            alpha: The computed weight for this data point.
+            training_point: The specific training point to center the expression
+                along.
+
+        Returns:
+            A string representation of the mathematical definition of the
+            kernel function at the given training point.
+        """
+        return f"{(alpha * self.constant[0]):.6e}"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
-        """
-        Returns the diagonal of K(x, x). For the constant kernel, k(x, x) = c
-        for all x.
+        """Computes the diagonal of the kernel matrix K(x, x).
 
         Args:
-            - x: Arrf64
-                - Input array of shape (n, d).
+            x: Input array of shape (n, d).
 
         Returns:
-            Arrf64: Array filled with the constant value, shape (n,).
+            The diagonal of K(x, x) as a flat array.
         """
-        return np.full(x.shape[0], self.constant[0])
+        return np.full(x.shape[0], self.constant[0], dtype=np.float64)
 
-    def _get_expanded_bounds(self) -> list[tuple[f64, f64]]:
-        """
-        Returns bounds for optimization.
-
-        Returns:
-            list[tuple[f64, f64]]: Same as bounds property for isotropic kernel.
-        """
-        return self.bounds
+    def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
+        """Pass since the constant kernel has no anisotropic hyperparameters."""

@@ -18,6 +18,7 @@ error, expected improvement)
 ```bash
 pip install gplite
 ```
+
 or for optional dependencies to run the example files
 
 ```bash
@@ -26,9 +27,11 @@ pip install "gplite[examples]"
 
 ## **Quick Start**
 
-The core workflow of `gplite` is designed to be highly intuitive. More detailed, end-to-end examples can be found in the [examples](examples/) directory.
+The core workflow of `gplite` is designed to be highly intuitive. More detailed,
+end-to-end examples can be found in the [examples](examples/) directory.
 
 ### 1. Standard Regression & Composable Kernels
+
 ```python
 import numpy as np
 from gplite import GaussianProcess, RBFKernel, PeriodicKernel
@@ -48,7 +51,8 @@ gp.fit(X_train, y_train, optimize=True)
 y_mean, y_std = gp.predict(X_test, return_std=True)
 ```
 
-### 2. Automated Active Learning 
+### 2. Automated Active Learning
+
 ```python
 from gplite import ActiveLearner
 

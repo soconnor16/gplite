@@ -14,6 +14,7 @@ uv.lock
 # OS files
 .DS_Store
 
-# misc
+# Misc
 TODO
 .env
+.rumdl_cache/

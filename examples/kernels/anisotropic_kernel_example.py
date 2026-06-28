@@ -1,5 +1,4 @@
-"""
-Demonstrates how to create multi-dimensional kernels and why they may be
+"""Demonstrates how to create multi-dimensional kernels and why they may be
 important.
 """
 
@@ -9,9 +8,7 @@ from gplite import GaussianProcess, RBFKernel
 
 
 def target_function(x):
-    """
-    Synthetic 2D function for demonstration
-    """
+    """Synthetic 2D function for demonstration."""
     x1, x2 = x[:, 0], x[:, 1]
     return np.sin(3 * x1) + 0.5 * np.cos(0.5 * x2)
 

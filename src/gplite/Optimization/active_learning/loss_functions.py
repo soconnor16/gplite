@@ -1,18 +1,23 @@
-"""
-Loss functions for active learning hyperparameter optimization.
+"""Loss functions for active learning hyperparameter optimization.
 
 These functions evaluate model performance across the full dataset to guide
 final hyperparameter tuning after active learning completes.
 
-RMSE (Root Mean Squared Error):
-    RMSE = sqrt(1/n * Σᵢ (yᵢ - ŷᵢ)²)
+Built-in loss functions include:
 
-    Penalizes large errors more heavily due to squaring.
+    RMSE (Root Mean Squared Error):
+        RMSE = sqrt(1/n * Σᵢ (yᵢ - ŷᵢ)²)
 
-MAE (Mean Absolute Error):
-    MAE = 1/n * Σᵢ |yᵢ - ŷᵢ|
+        Penalizes large errors more heavily due to squaring.
 
-    More robust to outliers than RMSE.
+    MAE (Mean Absolute Error):
+        MAE = 1/n *  |yᵢ - ŷᵢ|
+
+        More robust to outliers than RMSE.
+
+This package also supports custom loss functions whose expected function
+signatures can be found in the ActiveLearning and GaussianProcess module-level
+README files.
 """
 
 from typing import TYPE_CHECKING
@@ -26,16 +31,16 @@ if TYPE_CHECKING:
 
 
 def root_mean_squared_error(learner: "ActiveLearner") -> f64:
-    """
-    Computes RMSE between GP predictions and true values across the full
-    dataset.
+    """Computes RMSE between GP predictions and true values.
+
+    To avoid overfitting to training data, the RMSE value here is computed
+    across the full dataset rather than the training pool.
 
     Args:
-        - learner: ActiveLearner
-            - Active learner with fitted GP model.
+        learner: Active learner with fitted GP model.
 
     Returns:
-        f64: Root mean squared error value.
+        Root mean squared error value.
     """
     pred_target_values = learner.gp.predict(learner.x_full)
     real_target_values = learner.y_full
@@ -44,16 +49,16 @@ def root_mean_squared_error(learner: "ActiveLearner") -> f64:
 
 
 def mean_absolute_error(learner: "ActiveLearner") -> f64:
-    """
-    Computes MAE between GP predictions and true values across the full
-    dataset.
+    """Computes MAE between GP predictions and true values.
+
+    To avoid overfitting to training data, the MAE value here is computed
+    across the full dataset rather than the training pool.
 
     Args:
-        - learner: ActiveLearner
-            - Active learner with fitted GP model.
+        learner: Active learner with fitted GP model.
 
     Returns:
-        f64: Mean absolute error value.
+        Mean absolute error value.
     """
     pred_target_values = learner.gp.predict(learner.x_full)
     real_target_values = learner.y_full

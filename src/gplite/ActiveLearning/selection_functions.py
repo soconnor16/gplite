@@ -1,5 +1,13 @@
-"""
-Selection functions for active learning point acquisition strategies.
+"""Selection functions for active learning point acquisition strategies.
+
+Selection functions act as ways to score data points to determine the optimal
+next point or batch of points to add to our model's training pool. Several
+built-in selection functions are provided here (random, max uncertainty, max
+error, expected improvement max and min).
+
+Custom selection functions are also supported in this package, the expected
+function signature for custom selection functions can be found in the
+ActiveLearning module-level README file.
 """
 
 from typing import TYPE_CHECKING
@@ -15,18 +23,15 @@ if TYPE_CHECKING:
 
 
 def random_selection(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
-    """
-    Randomly selects points from the remaining pool for training.
+    """Randomly selects points from the remaining pool for training.
 
     Args:
-        - learner: ActiveLearner
-            - The active learner instance with fitted GP.
-        - n_points: int
-            - Number of points to select. Defaults to 1.
+        learner: The active learner instance with fitted GP.
+        n_points: Number of points to select. Defaults to 1.
 
     Returns:
-        Arri64: Indices of randomly selected points from the full dataset.
-                Returns empty array if no points remain.
+        Indices of randomly selected points from the full dataset. Returns an
+        empty array if no points remain.
     """
     num_points_in_pool = len(learner.remaining_indices)
 
@@ -36,29 +41,27 @@ def random_selection(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     num_selection_points = min(n_points, num_points_in_pool)
     rng = np.random.default_rng()
     selected_indices = rng.choice(
-        num_points_in_pool, num_selection_points, replace=False
+        num_points_in_pool,
+        num_selection_points,
+        replace=False,
     )
 
     return learner.remaining_indices[selected_indices]
 
 
 def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
-    """
-    Selects points with highest predictive uncertainty (variance).
+    """Selects points with highest predictive uncertainty (variance).
 
     This strategy prioritizes points where the model is most uncertain,
     helping to explore regions with limited training data coverage.
 
     Args:
-        - learner: ActiveLearner
-            - The active learner instance with fitted GP.
-        - n_points: int
-            - Number of points to select. Defaults to 1.
+        learner: The active learner instance with fitted GP.
+        n_points: Number of points to select. Defaults to 1.
 
     Returns:
-        Arri64: Indices of points with highest uncertainty, sorted by
-                decreasing uncertainty. Returns empty array if no points
-                remain.
+        Indices of points with highest uncertainty, sorted by decreasing
+        uncertainty. Returns an empty array if no points remain.
     """
     if len(learner.remaining_indices) == 0:
         return np.array([], dtype=np.int64)
@@ -67,7 +70,8 @@ def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     # square root of the variance, and sqrt(x) is a monotonically increasing
     # function
     _, std = learner.gp.predict(
-        learner.x_full[learner.remaining_indices], return_std=True
+        learner.x_full[learner.remaining_indices],
+        return_std=True,
     )
 
     flat_var = std.flatten()
@@ -78,10 +82,10 @@ def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
 
 
 def expected_improvement_max(
-    learner: "ActiveLearner", n_points: int = 1
+    learner: "ActiveLearner",
+    n_points: int = 1,
 ) -> Arri64:
-    """
-    Selects points with highest Expected Improvement for maximization.
+    """Selects points with highest Expected Improvement for maximization.
 
     Expected Improvement measures the expected amount by which a candidate
     point will exceed the current best observed value. Balances exploitation
@@ -91,15 +95,13 @@ def expected_improvement_max(
     where Z = (μ(x) - f_best) / σ(x), f_best = max(y_train)
 
     Args:
-        - learner: ActiveLearner
-            - The active learner instance with fitted GP.
-        - n_points: int
-            - Number of points to select. Defaults to 1.
+        learner: The active learner instance with fitted GP.
+        n_points: Number of points to select. Defaults to 1.
 
     Returns:
-        Arri64: Indices of points with highest expected improvement, sorted by
-                decreasing expected_improvement. Returns empty array if no
-                points remain.
+        Indices of points with highest expected improvement, sorted by
+        decreasing expected_improvement. Returns an empty array if no points
+        remain.
     """
     if len(learner.remaining_indices) == 0:
         return np.array([], dtype=np.int64)
@@ -123,10 +125,10 @@ def expected_improvement_max(
 
 
 def expected_improvement_min(
-    learner: "ActiveLearner", n_points: int = 1
+    learner: "ActiveLearner",
+    n_points: int = 1,
 ) -> Arri64:
-    """
-    Selects points with highest Expected Improvement for minimization.
+    """Selects points with highest Expected Improvement for minimization.
 
     Expected Improvement measures the expected amount by which a candidate
     point will fall below the current best (lowest) observed value. Balances
@@ -136,15 +138,13 @@ def expected_improvement_min(
     where Z = (f_best - μ(x)) / σ(x), f_best = min(y_train)
 
     Args:
-        - learner: ActiveLearner
-            - The active learner instance with fitted GP.
-        - n_points: int
-            - Number of points to select. Defaults to 1.
+        learner: The active learner instance with fitted GP.
+        n_points: Number of points to select. Defaults to 1.
 
     Returns:
-        Arri64: Indices of points with highest expected improvement, sorted by
-                decreasing expected_improvement. Returns empty array if no
-                points remain.
+        Indices of points with highest expected improvement, sorted by
+        decreasing expected_improvement. Returns an empty array if no points
+        remain.
     """
     if len(learner.remaining_indices) == 0:
         return np.array([], dtype=np.int64)
@@ -168,21 +168,18 @@ def expected_improvement_min(
 
 
 def max_absolute_error(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
-    """
-    Selects points with highest absolute prediction error.
+    """Selects points with highest absolute prediction error.
 
     This strategy prioritizes points where the current model makes the
     largest errors, focusing learning on the most challenging regions.
 
     Args:
-        - learner: ActiveLearner
-            - The active learner instance with fitted GP.
-        - n_points: int
-            - Number of points to select. Defaults to 1.
+        learner: The active learner instance with fitted GP.
+        n_points: Number of points to select. Defaults to 1.
 
     Returns:
-        Arri64: Indices of points with highest absolute error, sorted by
-                decreasing error. Returns empty array if no points remain.
+        Indices of points with highest absolute error, sorted by
+        decreasing error. Returns an empty array if no points remain.
     """
     if len(learner.remaining_indices) == 0:
         return np.array([], dtype=np.int64)

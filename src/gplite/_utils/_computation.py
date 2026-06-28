@@ -12,18 +12,20 @@ if TYPE_CHECKING:
 
 
 def compute_square_euclidean_distance(x1: Arrf64, x2: Arrf64) -> Arrf64:
-    """
-    Helper function which computes the square euclidean distance (x - x_i)^2
-    between two input arrays.
+    """Computes the square euclidean distance between x1 and x2.
+
+    This function computes the square euclidean distance (x - xᵢ)² between two
+    input arrays for use in kernel covariance functions (RBF and Matern). If the
+    x1 and x2 arguments are identical, the symmetry of the resulting distance
+    matrix is leveraged by calculating only the upper triangular distance and
+    converting it to a square matrix before returning.
 
     Args:
-        - x1: Arrf64
-            - Input array 1 of shape (n_samples, n_features).
-        - x2: Arrf64
-            - Input array 2 of shape (m_samples, n_features).
+        x1: Input array 1 of shape (n_samples, n_features).
+        x2: Input array 2 of shape (m_samples, n_features).
 
     Returns:
-        Arrf64: The square euclidean distance matrix between input arrays.
+        The square euclidean distance matrix between input arrays.
     """
     # check if x1 and x2 are the exact same array object in memory
     if x1 is x2:
@@ -36,29 +38,37 @@ def compute_square_euclidean_distance(x1: Arrf64, x2: Arrf64) -> Arrf64:
 
 
 def compute_lower_cholesky_decomposition(
-    K: Arrf64, noise: float, max_attempts: int
+    K: Arrf64,
+    noise: float,
+    max_attempts: int,
 ) -> tuple[Arrf64, float]:
-    """
-    Computes the lower triangular Cholesky decomposition of a kernel matrix
-    with adaptive noise regularization for numerical stability.
+    """Computes the lower triangular Cholesky decomposition of a kernel matrix.
 
-    Uses a two-phase strategy:
+    In typical Gaussian Process Regression, an expensive, direct inversion of
+    the kernel's covariance matrix is necessary when fitting the model for
+    prediction. Cholesky decomposition provides a more computationally efficient
+    and numerically stable alternative to this direct inversion, which is
+    especially important when training datasets must remain unstandardized or
+    many matrix inversions are necessary (e.g., during hyperparameter
+    optimization where the model is fitted many times). While more numerically
+    stable than direct matrix inversion, Cholesky decomposition may still fail
+    due to floating point imprecision. This function attempts to automatically
+    correct and handle these failures by employing a two-phase strategy if
+    failure occurs:
         1. Retry with exponentially growing noise (handles most cases)
         2. Eigenvalue-based correction as a final fallback (more expensive)
 
     Args:
-        - K: Arrf64
-            - Kernel matrix of shape (n, n)
-        - noise: float
-            - Initial noise/jitter level to add to diagonal.
-        - max_attempts: int
-            - Maximum number of decomposition attempts before falling back to
-              eigenvalue correction.
+        K: kernel matrix of shape (n, n)
+        noise: Initial noise/jitter level to add to diagonal.
+        max_attempts: Maximum number of decomposition attempts before falling
+            back to eigenvalue correction.
 
     Returns:
-        tuple[Arrf64, float]: Lower triangular Cholesky factor L and the
-                              final noise level used,
-                              where K + noise * I = L @ L.T.
+        A tuple with the Lower Cholesky decomposition L and the final noise
+        value used to compute it. The original kernel matrix (K), noise value,
+        and L are related via:
+            K + noise * I = L @ L^T
 
     Raises:
         ValueError: If decomposition fails after all strategies are exhausted.
@@ -116,22 +126,26 @@ def compute_lower_cholesky_decomposition(
 
 
 def compute_rmse_across_dataset(
-    gp: "GaussianProcess", x_full: Arrf64, y_full: Arrf64
+    gp: "GaussianProcess",
+    x_full: Arrf64,
+    y_full: Arrf64,
 ) -> f64:
-    """
-    Computes the root mean squared error (RMSE) of Gaussian process predictions
-    across a dataset.
+    """Computes the root mean squared error (RMSE) of a model's predictions.
+
+    While direct error-based optimization is mostly avoided in this package,
+    rmse-based optimization is provided as a final optimization method for the
+    ActiveLearning class. Here, we compute the rmse across the entire data pool
+    given to the learner (as opposed to just the data it picked for training) as
+    to avoid overfitting risks.
 
     Args:
-        - gp: GaussianProcess
-            - Fitted Gaussian process model.
-        - x_full: Arrf64
-            - Input features of shape (n, d).
-        - y_full: Arrf64
-            - True target values of shape (n,).
+        gp: Fitted Gaussian process model.
+        x_full: Input features of shape (n, d).
+        y_full: True target values of shape (n,).
 
     Returns:
-        f64: RMSE = sqrt(mean((y_pred - y_true)^2))
+        The computed RMSE value where:
+            RMSE = sqrt(mean((y_pred - y_true)²))
     """
     y_pred = gp.predict(x_full)
 

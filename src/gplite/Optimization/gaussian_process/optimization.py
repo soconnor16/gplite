@@ -1,5 +1,4 @@
-"""
-Hyperparameter optimization for Gaussian Process models.
+"""Hyperparameter optimization for Gaussian Process models.
 
 Uses a two-phase hybrid optimization strategy:
     1. Global Screening: Quick L-BFGS-B runs from multiple starting points
@@ -10,8 +9,7 @@ This approach is more efficient than full optimization from all starting
 points, as most random restarts land in poor basins and would waste
 computation.
 
-Initial points are sampled using Latin Hypercube Sampling in log-space
-for better coverage of the typically log-scaled hyperparameter space.
+Initial points are sampled using Latin Hypercube Sampling in log-space.
 """
 
 from collections.abc import Callable
@@ -24,6 +22,7 @@ from scipy.optimize import minimize
 from scipy.stats import qmc
 
 from gplite._utils._constants import LOCAL_MAXITER, N_REFINE
+from gplite._utils._errors import ValidationError
 from gplite._utils._types import Arrf64, GaussianProcessLossFunction
 from gplite.Optimization.gaussian_process.loss_functions import (
     negative_log_marginal_likelihood,
@@ -46,28 +45,29 @@ LOSS_FUNCTION_HAS_GRAD: dict[str, bool] = {
 
 
 def _get_objective_wrappers(
-    gp: "GaussianProcess", objective_func: str | GaussianProcessLossFunction
+    gp: "GaussianProcess",
+    objective_func: str | GaussianProcessLossFunction,
 ) -> tuple[Callable, Callable, bool]:
-    """
-    Validates objective functions and returns SciPy-compatible wrappers for the
-    main optimization loop.
+    """Validates objective functions and returns wrappers for optimization.
 
     Args:
-        - gp: GaussianProcess
-            - The GaussianProcess instance whose hyperparameters are being
+        gp: The GaussianProcess instance whose hyperparameters are being
               optimized.
-        - objective_func: str | GaussianProcessLossFunction
-            - The objective function used to calculate the loss value to be
-              minimized during optimization.
+        objective_func: The objective function used to calculate the loss value
+            to be minimized during optimization.
 
     Returns:
-        tuple[Callable, Callable, bool]: A tuple of two loss functions and a
-                                         bool which is used to determine whether
-                                         to use gradients or not. The reason for
-                                         two loss functions is because when a
-                                         custom loss function is not passed, it
-                                         is much cheaper to do the initial
-                                         screening without gradient calculation.
+        A tuple of two loss functions and a bool which is used to determine
+        whether to use gradients or not. If gradients should be used, the first
+        loss function is used with gradients while the second is used without
+        gradients, which is cheaper for screening. If gradients should not be
+        used, both loss functions are identical.
+
+    Raises:
+        ValidationError: If the objective func is not a string, Callable, or
+            "None".
+        ValueError: If the objective func is a string, but not a valid built-in
+            objective function choice.
     """
     if callable(objective_func):
         use_grad = False
@@ -83,10 +83,11 @@ def _get_objective_wrappers(
 
         return custom_wrapper, custom_wrapper, use_grad
 
+    # if the objective func is not a callable type, it must be a string by this
+    # point
     if not isinstance(objective_func, str):
-        raise ValueError(
-            "Error: 'objective_func' must be a string or Callable."
-        )
+        err_msg = "Error: 'objective_func' must be a string, Callable, or None."
+        raise ValidationError(err_msg)
 
     obj_lower = objective_func.lower()
     if obj_lower not in LOSS_FUNCTIONS:
@@ -124,21 +125,22 @@ def _generate_starting_points(
     initial_theta: Arrf64,
     bounds: list[tuple[float, float]],
     n_restarts: int,
-) -> list[np.ndarray]:
-    """
-    Generates starting points for optimization using Latin Hypercube Sampling
-    in log-space.
+) -> list[Arrf64]:
+    """Generates starting points for optimization with Latin Hypercube Sampling.
+
+    Sampling is performed in log-space. Because Gaussian Process hyperparameters
+    (such as length scales and variances) are strictly positive and can span
+    multiple orders of magnitude, uniform sampling in linear space severely
+    under-samples small values. Log-space sampling ensures the optimizer
+    explores all orders of magnitude uniformly.
 
     Args:
-        - initial_theta: Arrf64
-            - Current hyperparameter values.
-        - bounds: list[tuple[float, float]]
-            - Bounds for each hyperparameter.
-        - n_restarts: int
-            - Number of random starting points to generate.
+        initial_theta: Current hyperparameter values.
+        bounds: Bounds for each hyperparameter.
+        n_restarts: Number of random starting points to generate.
 
     Returns:
-        list[np.ndarray]: List of starting points including initial_theta.
+        List of starting points including initial_theta.
     """
     starting_points = [initial_theta]
 
@@ -153,7 +155,7 @@ def _generate_starting_points(
                 log_low, log_high = np.log10(low), np.log10(high)
                 log_sample = log_low + sample[j] * (log_high - log_low)
                 theta.append(10**log_sample)
-            starting_points.append(np.array(theta))
+            starting_points.append(np.asarray(theta, dtype=np.float64))
 
     return starting_points
 
@@ -163,9 +165,10 @@ def optimize_hyperparameters(
     objective_func: str | GaussianProcessLossFunction = "lml",
     n_restarts: int = 0,
 ) -> None:
-    """
-    Optimizes kernel hyperparameters and noise using a hybrid two-phase
-    optimization strategy.
+    """Optimizes kernel hyperparameters and noise.
+
+    Values are optimized using a hybrid two-phase optimization strategy
+    described below:
 
     Phase 1 (Global Screening): Runs quick optimizations from multiple
     starting points to identify promising basins.
@@ -174,21 +177,19 @@ def optimize_hyperparameters(
     thorough optimization to find the best solution.
 
     Args:
-        - gp: GaussianProcess
-            - The Gaussian Process model to optimize.
-        - objective_func: str | Callable
-            - Loss function to minimize. Options: 'lml'
-              (log marginal likelihood), or a custom loss function.
-              Defaults to 'lml'.
-        - n_restarts: int
-            - Number of random restarts for global screening. Defaults to 0
-              (only optimize from current params).
+        gp: The Gaussian Process model to optimize.
+        objective_func: Loss function to minimize. Options: 'lml'
+            (log marginal likelihood), or a custom loss function. Defaults to
+            'lml'.
+        n_restarts: Number of random restarts for global screening. Defaults to
+            0 (only optimize from current params).
 
     Raises:
         ValueError: If objective_func is not a recognized loss function.
     """
     func_wrapper, func_wrapper_screening, use_grad = _get_objective_wrappers(
-        gp, objective_func
+        gp,
+        objective_func,
     )
 
     # extract initial parameters and bounds
@@ -197,14 +198,16 @@ def optimize_hyperparameters(
     initial_theta = np.concatenate([initial_kernel_params, initial_noise])
 
     noise_bounds = [(1e-6, 1e1)]
-    bounds = gp.kernel._get_expanded_bounds() + noise_bounds
+    bounds = gp.kernel._bounds + noise_bounds
 
     # generate starting points
     starting_points = _generate_starting_points(
-        initial_theta, bounds, n_restarts
+        initial_theta,
+        bounds,
+        n_restarts,
     )
 
-    # Phase 1: Global Screening
+    # phase 1: Global Screening
     screening_results = []
     for start_theta in starting_points:
         try:
@@ -224,7 +227,7 @@ def optimize_hyperparameters(
     n_to_refine = min(N_REFINE, len(screening_results))
     top_candidates = [theta for _, theta in screening_results[:n_to_refine]]
 
-    # Phase 2: Local Refinement
+    # phase 2: Local Refinement
     best_theta = top_candidates[0]
     best_loss = screening_results[0][0]
 

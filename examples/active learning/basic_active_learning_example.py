@@ -1,5 +1,4 @@
-"""
-Intro Active Learning example. This should be sufficient for most regular usage
+"""Intro Active Learning example. This should be sufficient for most regular usage
 and exposes the core API and most commonly used settings.
 """
 
@@ -13,9 +12,7 @@ MAX_POINTS = 25
 
 
 def target_function(x: NDArray) -> NDArray:
-    """
-    Synthetic target function we will be fitting the model to.
-    """
+    """Synthetic target function we will be fitting the model to."""
     return (
         np.sin(x) * np.exp(-0.03 * x)
         + 0.5 * np.cos(2.5 * x)
