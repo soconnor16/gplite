@@ -2,6 +2,13 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-06-28
+
+### Fixed
+
+- **Kernel Strings** Fixed accidental replacement of "^2" with "²" in some
+kernel strings.
+
 ## [3.1.0] - 2026-06-27
 
 ### Added

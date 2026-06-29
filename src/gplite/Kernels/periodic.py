@@ -382,7 +382,7 @@ class PeriodicKernel(Kernel):
             else:
                 inner = f"{freq:.6e}*({var}-{tp:.6e})"
 
-            term = f"{amp:.6e}*sin({inner})²"
+            term = f"{amp:.6e}*sin({inner})^2"
             difference_parts.append(term)
 
         exponent_sum = "+".join(difference_parts)
