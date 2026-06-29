@@ -383,7 +383,7 @@ class MaternKernel(Kernel):
         for i, var in enumerate(variable_names):
             ls_val = ls_squared[0] if self.isotropic else ls_squared[i]
             dist_parts.append(
-                f"( {var} - {training_point[i]:.6e} )² / {ls_val:.6e}",
+                f"( {var} - {training_point[i]:.6e} )^2 / {ls_val:.6e}",
             )
 
         dist_sum = " + ".join(dist_parts)

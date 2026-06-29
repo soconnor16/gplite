@@ -1,6 +1,6 @@
 [project]
 name = "gplite"
-version = "3.1.0"
+version = "3.1.1"
 description = "Lightweight Gaussian Process regression library"
 license = { file = "LICENSE" }
 authors = [{ name = "Stephen O'Connor", email = "soconnor10111@gmail.com" }]

@@ -331,11 +331,11 @@ class RBFKernel(Kernel):
             # handle different training point cases to save tokens
             # when possible
             if abs(tp) < EPSILON:
-                diff_str = f"{coeff:.6e}*{var}²"
+                diff_str = f"{coeff:.6e}*{var}^2"
             elif tp < 0.0:
-                diff_str = f"{coeff:.6e}*({var}+{abs(tp):.6e})²"
+                diff_str = f"{coeff:.6e}*({var}+{abs(tp):.6e})^2"
             else:
-                diff_str = f"{coeff:.6e}*({var}-{tp:.6e})²"
+                diff_str = f"{coeff:.6e}*({var}-{tp:.6e})^2"
 
             difference_parts.append(diff_str)
 
