@@ -16,20 +16,15 @@ More detailed documentation about many methods below can be found in the Kernel
 base class in 'Kernels/_base.py'.
 """
 
-from typing import cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
 from gplite._utils._computation import compute_square_euclidean_distance
 from gplite._utils._constants import EPSILON
 from gplite._utils._data import resolve_bounds_shape
-from gplite._utils._types import (
-    Arrf64,
-    KernelBounds,
-    NumericArray,
-    NumericValue,
-    f64,
-)
 from gplite._utils._validation import (
     validate_anisotropic_hyperparameter,
     validate_anisotropic_hyperparameter_shape,
@@ -38,6 +33,15 @@ from gplite._utils._validation import (
     validate_set_params,
 )
 from gplite.Kernels._base import Kernel
+
+if TYPE_CHECKING:
+    from gplite._utils._types import (
+        Arrf64,
+        KernelBounds,
+        NumericArray,
+        NumericValue,
+        f64,
+    )
 
 
 class RBFKernel(Kernel):

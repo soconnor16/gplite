@@ -18,9 +18,12 @@ the log marginal likelihood:
     log p(y|X,θ) = -0.5 * y.T @ K^(-1) @ y - 0.5 * log|K| - n/2 * log(2π)
 """
 
+from __future__ import annotations
+
 import pickle
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import linalg
@@ -32,11 +35,6 @@ from gplite._utils._data import (
     standardize_target_data,
 )
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import (
-    Arrf64,
-    GaussianProcessLossFunction,
-    NumericArray,
-)
 from gplite._utils._validation import (
     validate_input_and_target_data,
     validate_numeric_array,
@@ -46,6 +44,13 @@ from gplite.Kernels._base import Kernel
 from gplite.Optimization.gaussian_process.optimization import (
     optimize_hyperparameters,
 )
+
+if TYPE_CHECKING:
+    from gplite._utils._types import (
+        Arrf64,
+        GaussianProcessLossFunction,
+        NumericArray,
+    )
 
 
 class GaussianProcess:
@@ -310,7 +315,7 @@ class GaussianProcess:
 
     # TODO: Make json based loading
     @classmethod
-    def load(cls, filepath: str | Path) -> "GaussianProcess":
+    def load(cls, filepath: str | Path) -> GaussianProcess:
         """Loads a Gaussian Process model from a file.
 
         Args:

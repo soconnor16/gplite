@@ -10,19 +10,21 @@ function signature for custom selection functions can be found in the
 ActiveLearning module-level README file.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.stats import norm
 
 from gplite._utils._constants import EPSILON
-from gplite._utils._types import Arri64
 
 if TYPE_CHECKING:
+    from gplite._utils._types import Arri64
     from gplite.ActiveLearning.active_learning import ActiveLearner
 
 
-def random_selection(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
+def random_selection(learner: ActiveLearner, n_points: int = 1) -> Arri64:
     """Randomly selects points from the remaining pool for training.
 
     Args:
@@ -49,7 +51,7 @@ def random_selection(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
     return learner.remaining_indices[selected_indices]
 
 
-def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
+def max_uncertainty(learner: ActiveLearner, n_points: int = 1) -> Arri64:
     """Selects points with highest predictive uncertainty (variance).
 
     This strategy prioritizes points where the model is most uncertain,
@@ -82,7 +84,7 @@ def max_uncertainty(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
 
 
 def expected_improvement_max(
-    learner: "ActiveLearner",
+    learner: ActiveLearner,
     n_points: int = 1,
 ) -> Arri64:
     """Selects points with highest Expected Improvement for maximization.
@@ -125,7 +127,7 @@ def expected_improvement_max(
 
 
 def expected_improvement_min(
-    learner: "ActiveLearner",
+    learner: ActiveLearner,
     n_points: int = 1,
 ) -> Arri64:
     """Selects points with highest Expected Improvement for minimization.
@@ -167,7 +169,7 @@ def expected_improvement_min(
     return learner.remaining_indices[top_indices]
 
 
-def max_absolute_error(learner: "ActiveLearner", n_points: int = 1) -> Arri64:
+def max_absolute_error(learner: ActiveLearner, n_points: int = 1) -> Arri64:
     """Selects points with highest absolute prediction error.
 
     This strategy prioritizes points where the current model makes the

@@ -20,17 +20,18 @@ signatures can be found in the ActiveLearning and GaussianProcess module-level
 README files.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from gplite._utils._types import f64
-
 if TYPE_CHECKING:
+    from gplite._utils._types import f64
     from gplite.ActiveLearning.active_learning import ActiveLearner
 
 
-def root_mean_squared_error(learner: "ActiveLearner") -> f64:
+def root_mean_squared_error(learner: ActiveLearner) -> f64:
     """Computes RMSE between GP predictions and true values.
 
     To avoid overfitting to training data, the RMSE value here is computed
@@ -48,7 +49,7 @@ def root_mean_squared_error(learner: "ActiveLearner") -> f64:
     return np.sqrt(np.mean((pred_target_values - real_target_values) ** 2))
 
 
-def mean_absolute_error(learner: "ActiveLearner") -> f64:
+def mean_absolute_error(learner: ActiveLearner) -> f64:
     """Computes MAE between GP predictions and true values.
 
     To avoid overfitting to training data, the MAE value here is computed

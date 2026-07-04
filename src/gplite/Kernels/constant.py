@@ -16,6 +16,10 @@ More detailed documentation about many methods below can be found in the Kernel
 base class in 'Kernels/_base.py'.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from gplite._utils._data import resolve_bounds_shape
@@ -32,6 +36,15 @@ from gplite._utils._validation import (
     validate_set_params,
 )
 from gplite.Kernels._base import Kernel
+
+if TYPE_CHECKING:
+    from gplite._utils._types import (
+        Arrf64,
+        KernelBounds,
+        NumericArray,
+        NumericValue,
+        f64,
+    )
 
 
 class ConstantKernel(Kernel):
@@ -75,7 +88,7 @@ class ConstantKernel(Kernel):
             "Constant Kernel Constant",
         )
 
-        self._bound_config = {"constant": [(f64(1e-6), f64(1e5))]}
+        self._bound_config = {"constant": [(np.float64(1e-6), np.float64(1e5))]}
 
         if bounds is not None:
             validated_bounds = validate_bounds_dict(

@@ -20,25 +20,18 @@ The learning loop:
     4. Repeat until stopping criterion (RMSE threshold, budget, etc.)
 """
 
+from __future__ import annotations
+
 import csv
 import logging
 import warnings
-from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from gplite._utils._computation import compute_rmse_across_dataset
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import (
-    ActiveLearningLossFunction,
-    Arrf64,
-    Arri64,
-    NumericArray,
-    NumericValue,
-    SelectionFunction,
-    f64,
-)
 from gplite._utils._validation import (
     validate_input_and_target_data,
     validate_numeric_value,
@@ -55,6 +48,19 @@ from gplite.Kernels._base import Kernel
 from gplite.Optimization.active_learning.optimization import (
     optimize_hyperparameters,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from gplite._utils._types import (
+        ActiveLearningLossFunction,
+        Arrf64,
+        Arri64,
+        NumericArray,
+        NumericValue,
+        SelectionFunction,
+        f64,
+    )
 
 logger = logging.getLogger(__name__)
 

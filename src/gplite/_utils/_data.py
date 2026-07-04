@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from gplite._utils._constants import EPSILON
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, f64
+
+if TYPE_CHECKING:
+    from gplite._utils._types import Arrf64, f64
 
 
 ### Kernel Data Handling ###

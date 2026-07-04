@@ -13,7 +13,8 @@ Uses a two-phase hybrid optimization strategy:
 Initial points are sampled using Latin Hypercube Sampling in log-space.
 """
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -23,14 +24,17 @@ from scipy.stats import qmc
 
 from gplite._utils._constants import GLOBAL_MAXITER, LOCAL_MAXITER, N_REFINE
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import ActiveLearningLossFunction, Arrf64
 from gplite.Optimization.active_learning.loss_functions import (
     mean_absolute_error,
     root_mean_squared_error,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from gplite._utils._types import ActiveLearningLossFunction, Arrf64
     from gplite.ActiveLearning.active_learning import ActiveLearner
+
 
 # local constant to define valid loss functions
 LOSS_FUNCTIONS: dict[str, Callable] = {
@@ -42,7 +46,7 @@ LOSS_FUNCTIONS: dict[str, Callable] = {
 
 
 def _get_objective_wrapper(
-    learner: "ActiveLearner",
+    learner: ActiveLearner,
     objective_func: str | ActiveLearningLossFunction | None,
 ) -> Callable | None:
     """Validates objective functions and returns wrappers for optimization.
@@ -151,7 +155,7 @@ def _generate_starting_points(
 
 
 def optimize_hyperparameters(
-    learner: "ActiveLearner",
+    learner: ActiveLearner,
     objective_func: str | ActiveLearningLossFunction | None,
     n_restarts: int = 0,
 ) -> None:

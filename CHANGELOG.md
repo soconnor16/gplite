@@ -2,6 +2,13 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.2] - 2026-07-04
+
+### Other Changes
+
+- **Type Hint Refactoring** Type hint imports have been moved to dedicated
+type checking blocks to reduce import time for regular users.
+
 ## [3.1.1] - 2026-06-28
 
 ### Fixed

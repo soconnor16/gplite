@@ -25,13 +25,17 @@ Product Kernels (K_1 * K_2):
     ∂K_prod/∂θ₂ = K₁ * (∂K₂/∂θ₂)
 """
 
-from typing import cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite.Kernels._base import Kernel
+
+if TYPE_CHECKING:
+    from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 
 
 class CompositeKernel(Kernel):
@@ -183,7 +187,7 @@ class CompositeKernel(Kernel):
         # pass alpha=1.0 to child kernels, real alpha is added to the whole
         # expression after
         parts = [
-            k._to_str(variable_names, f64(1.0), training_point)
+            k._to_str(variable_names, np.float64(1.0), training_point)
             for k in self.kernels
         ]
 
@@ -318,7 +322,7 @@ class AdditiveKernel(CompositeKernel):
 
         return k_total, tuple(all_grads)
 
-    def __add__(self, other: Kernel) -> "AdditiveKernel":
+    def __add__(self, other: Kernel) -> AdditiveKernel:
         """Adds another kernel to this additive kernel.
 
         Args:
@@ -436,7 +440,7 @@ class ProductKernel(CompositeKernel):
 
         return k_total, tuple(all_grads)
 
-    def __mul__(self, other: Kernel) -> "ProductKernel":
+    def __mul__(self, other: Kernel) -> ProductKernel:
         """Multiplies another kernel with this product kernel.
 
         Args:
