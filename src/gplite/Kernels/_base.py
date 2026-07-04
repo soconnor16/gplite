@@ -16,12 +16,17 @@ data and is central to GP predictions:
     - K(X*, X*): covariance between test points (m × m)
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 from gplite._utils._validation import validate_input_arrays
+
+if TYPE_CHECKING:
+    from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 
 
 class Kernel(ABC):
@@ -384,7 +389,7 @@ class Kernel(ABC):
 
         return self.compute(x1, x2)
 
-    def __add__(self, other: "Kernel") -> "Kernel":
+    def __add__(self, other: Kernel) -> Kernel:
         """Returns a composite kernel as the sum of this kernel and another.
 
         This is equivalent to K_sum(x, x') = K(x, x') + K_other(x, x').
@@ -403,7 +408,7 @@ class Kernel(ABC):
 
         return AdditiveKernel(self, other)
 
-    def __mul__(self, other: "Kernel") -> "Kernel":
+    def __mul__(self, other: Kernel) -> Kernel:
         """Returns a composite kernel as the product of this kernel and another.
 
         This is equivalent to K_prod(x, x') = K(x, x') * K_other(x, x').

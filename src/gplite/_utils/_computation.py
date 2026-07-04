@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -5,9 +7,9 @@ from scipy import linalg
 from scipy.spatial.distance import cdist, pdist, squareform
 
 from gplite._utils._constants import EPSILON
-from gplite._utils._types import Arrf64, f64
 
 if TYPE_CHECKING:
+    from gplite._utils._types import Arrf64, f64
     from gplite.GaussianProcess.gaussian_process import GaussianProcess
 
 
@@ -126,7 +128,7 @@ def compute_lower_cholesky_decomposition(
 
 
 def compute_rmse_across_dataset(
-    gp: "GaussianProcess",
+    gp: GaussianProcess,
     x_full: Arrf64,
     y_full: Arrf64,
 ) -> f64:

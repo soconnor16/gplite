@@ -19,20 +19,22 @@ signatures can be found in the ActiveLearning and GaussianProcess module-level
 README files.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import linalg
 
 from gplite._utils._computation import compute_lower_cholesky_decomposition
-from gplite._utils._types import Arrf64
 
 if TYPE_CHECKING:
+    from gplite._utils._types import Arrf64
     from gplite.GaussianProcess.gaussian_process import GaussianProcess
 
 
 def negative_log_marginal_likelihood(
-    gp: "GaussianProcess",
+    gp: GaussianProcess,
     return_gradient: bool = True,
 ) -> float | tuple[float, Arrf64]:
     """Computes negative log marginal likelihood and optionally its gradient.

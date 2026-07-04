@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
+
+if TYPE_CHECKING:
+    from gplite._utils._types import Arrf64, NumericArray, NumericValue, f64
 
 
 ### General Validation ###

@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from gplite.ActiveLearning.active_learning import ActiveLearner
+    from gplite.GaussianProcess.gaussian_process import GaussianProcess
 
 ### EXTERNAL TYPES ###
 # These types are designed to be more flexible and used in the type hints of
@@ -43,17 +49,13 @@ Arrf64: TypeAlias = NDArray[f64]
 # arbitrarily sized array of 64 bit ints
 Arri64: TypeAlias = NDArray[i64]
 
-if TYPE_CHECKING:
-    from gplite.ActiveLearning.active_learning import ActiveLearner
-    from gplite.GaussianProcess.gaussian_process import GaussianProcess
-
 
 class SelectionFunction(Protocol):
     """Protocol for custom active learning point selection strategies."""
 
     def __call__(
         self,
-        learner: "ActiveLearner",
+        learner: ActiveLearner,
         n_points: int,
     ) -> Sequence[int] | NDArray[np.integer]: ...
 
@@ -61,10 +63,10 @@ class SelectionFunction(Protocol):
 class ActiveLearningLossFunction(Protocol):
     """Protocol for custom active learning hyperparameter optimization."""
 
-    def __call__(self, learner: "ActiveLearner") -> NumericValue: ...
+    def __call__(self, learner: ActiveLearner) -> NumericValue: ...
 
 
 class GaussianProcessLossFunction(Protocol):
     """Protocol for custom GP hyperparameter optimization."""
 
-    def __call__(self, gp: "GaussianProcess") -> NumericValue: ...
+    def __call__(self, gp: GaussianProcess) -> NumericValue: ...

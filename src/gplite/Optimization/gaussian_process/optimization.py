@@ -12,24 +12,29 @@ computation.
 Initial points are sampled using Latin Hypercube Sampling in log-space.
 """
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.linalg import LinAlgError
 from scipy.optimize import minimize
 from scipy.stats import qmc
 
 from gplite._utils._constants import LOCAL_MAXITER, N_REFINE
 from gplite._utils._errors import ValidationError
-from gplite._utils._types import Arrf64, GaussianProcessLossFunction
 from gplite.Optimization.gaussian_process.loss_functions import (
     negative_log_marginal_likelihood,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from numpy.typing import NDArray
+
+    from gplite._utils._types import Arrf64, GaussianProcessLossFunction
     from gplite.GaussianProcess.gaussian_process import GaussianProcess
+
 
 # loss functions implemented for gaussian process in this package
 LOSS_FUNCTIONS: dict[str, Callable] = {
@@ -45,7 +50,7 @@ LOSS_FUNCTION_HAS_GRAD: dict[str, bool] = {
 
 
 def _get_objective_wrappers(
-    gp: "GaussianProcess",
+    gp: GaussianProcess,
     objective_func: str | GaussianProcessLossFunction,
 ) -> tuple[Callable, Callable, bool]:
     """Validates objective functions and returns wrappers for optimization.
@@ -161,7 +166,7 @@ def _generate_starting_points(
 
 
 def optimize_hyperparameters(
-    gp: "GaussianProcess",
+    gp: GaussianProcess,
     objective_func: str | GaussianProcessLossFunction = "lml",
     n_restarts: int = 0,
 ) -> None:
