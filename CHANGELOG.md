@@ -2,6 +2,13 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.3] - 2026-07-06
+
+### Other Changes
+
+- **Dependencies** Loosen dependency version requirements for better
+compatibility with older environments.
+
 ## [3.1.2] - 2026-07-04
 
 ### Other Changes
