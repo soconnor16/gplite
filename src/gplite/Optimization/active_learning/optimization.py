@@ -10,7 +10,8 @@ Uses a two-phase hybrid optimization strategy:
        to identify promising basins in the hyperparameter space.
     2. Local Refinement: Thorough optimization of the top candidates.
 
-Initial points are sampled using Latin Hypercube Sampling in log-space.
+Initial points are sampled using Latin Hypercube Sampling. Both optimization and
+initial sampling are done in natural log-space.
 """
 
 from __future__ import annotations
@@ -76,8 +77,9 @@ def _get_objective_wrapper(
     # handle Custom Callables
     if callable(objective_func):
 
-        def custom_wrapper(theta: Arrf64) -> float:
+        def custom_wrapper(log_theta: Arrf64) -> float:
             try:
+                theta = np.exp(log_theta)
                 learner.gp.kernel.set_params(theta[:-1], _validate=False)
                 learner.gp._noise = theta[-1]
                 learner.gp._fit_without_optimization()
@@ -103,8 +105,9 @@ def _get_objective_wrapper(
 
     loss_fn = LOSS_FUNCTIONS[obj_lower]
 
-    def builtin_wrapper(theta: Arrf64) -> float:
+    def builtin_wrapper(log_theta: Arrf64) -> float:
         try:
+            theta = np.exp(log_theta)
             learner.gp.kernel.set_params(theta[:-1], _validate=False)
             learner.gp._noise = theta[-1]
             learner.gp._fit_without_optimization()
@@ -116,8 +119,8 @@ def _get_objective_wrapper(
 
 
 def _generate_starting_points(
-    initial_theta: Arrf64,
-    bounds: list[tuple[float, float]],
+    initial_log_theta: Arrf64,
+    log_bounds: list[tuple[float, float]],
     n_restarts: int,
 ) -> list[Arrf64]:
     """Generates starting points for optimization with Latin Hypercube Sampling.
@@ -129,27 +132,25 @@ def _generate_starting_points(
     explores all orders of magnitude uniformly.
 
     Args:
-        initial_theta: Current hyperparameter values.
-        bounds: Bounds for each hyperparameter.
+        initial_log_theta: Current hyperparameter values in natural log-space.
+        log_bounds: Natural log-space bounds for each hyperparameter.
         n_restarts: Number of random starting points to generate.
 
     Returns:
         List of starting points including initial_theta.
     """
-    starting_points = [initial_theta]
+    starting_points = [initial_log_theta]
 
     if n_restarts > 0:
-        sampler = qmc.LatinHypercube(d=len(bounds))
+        sampler = qmc.LatinHypercube(d=len(log_bounds))
         samples = sampler.random(n_restarts)
 
         for sample in samples:
-            theta = []
-            for j, (low, high) in enumerate(bounds):
-                # sample in log space: 10^uniform(log10(low), log10(high))
-                log_low, log_high = np.log10(low), np.log10(high)
+            log_theta = []
+            for j, (log_low, log_high) in enumerate(log_bounds):
                 log_sample = log_low + sample[j] * (log_high - log_low)
-                theta.append(10**log_sample)
-            starting_points.append(np.asarray(theta, dtype=np.float64))
+                log_theta.append(log_sample)
+            starting_points.append(np.asarray(log_theta, dtype=np.float64))
 
     return starting_points
 
@@ -187,12 +188,15 @@ def optimize_hyperparameters(
     initial_theta = np.concatenate([initial_kernel_params, initial_noise])
 
     noise_bounds = [(1e-6, 1e1)]
-    bounds = learner.gp.kernel._bounds + noise_bounds
+    linear_bounds = learner.gp.kernel._bounds + noise_bounds
+
+    initial_log_theta = np.log(initial_theta)
+    log_bounds = [(np.log(low), np.log(high)) for low, high in linear_bounds]
 
     # generate all starting points
     starting_points = _generate_starting_points(
-        initial_theta,
-        bounds,
+        initial_log_theta,
+        log_bounds,
         n_restarts,
     )
 
@@ -200,13 +204,13 @@ def optimize_hyperparameters(
     # quick optimization from each starting point to identify promising basins
     screening_results = []
 
-    for start_theta in starting_points:
+    for start_log_theta in starting_points:
         try:
             result = minimize(
                 func_wrapper,
-                start_theta,
+                start_log_theta,
                 method="L-BFGS-B",
-                bounds=bounds,
+                bounds=log_bounds,
                 options={"maxiter": GLOBAL_MAXITER},
             )
             screening_results.append((result.fun, result.x))
@@ -228,27 +232,28 @@ def optimize_hyperparameters(
 
     # phase 2: local refinement
     # more thoroughly optimize the most promising candidates
-    best_theta = top_candidates[0]
+    best_log_theta = top_candidates[0]
     best_loss = screening_results[0][0]
 
-    for candidate_theta in top_candidates:
+    for candidate_log_theta in top_candidates:
         try:
             result = minimize(
                 func_wrapper,
-                candidate_theta,
+                candidate_log_theta,
                 method="L-BFGS-B",
-                bounds=bounds,
+                bounds=log_bounds,
                 options={"maxiter": LOCAL_MAXITER},
             )
 
             if result.fun < best_loss:
                 best_loss = result.fun
-                best_theta = result.x
+                best_log_theta = result.x
 
         except (LinAlgError, ValueError):
             continue
 
     # set final best hyperparameters
+    best_theta = np.exp(best_log_theta)
     learner.gp.kernel.set_params(best_theta[:-1], _validate=False)
     learner.gp._noise = best_theta[-1]
 
