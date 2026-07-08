@@ -422,7 +422,7 @@ class GaussianProcess:
 
         # target data is always standardized, this unstandardizes it if the
         # unstandardized mean was not already 0
-        if self._y_mean > EPSILON:
+        if np.abs(self._y_mean) > EPSILON:
             return f"{full_expression} + {self._y_mean:.6e}"
 
         return full_expression
