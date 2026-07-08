@@ -2,6 +2,15 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.4] - 2026-07-08
+
+### Fixed
+
+- **GP Mean Checking** Fixed a check of whether a mean value could be treated
+as zero in the GaussianProcess class. Previously, this checked whether the mean
+was less than some epsilon value rather than checking if the absolute value of
+the mean was less than some epsilon value. Negative means were thus ignored.
+
 ## [3.1.3] - 2026-07-06
 
 ### Other Changes
