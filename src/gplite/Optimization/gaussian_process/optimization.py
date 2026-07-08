@@ -9,7 +9,8 @@ This approach is more efficient than full optimization from all starting
 points, as most random restarts land in poor basins and would waste
 computation.
 
-Initial points are sampled using Latin Hypercube Sampling in log-space.
+Initial points are sampled using Latin Hypercube Sampling. Both optimization and
+initial sampling are done in natural log-space.
 """
 
 from __future__ import annotations
@@ -77,8 +78,9 @@ def _get_objective_wrappers(
     if callable(objective_func):
         use_grad = False
 
-        def custom_wrapper(theta: Arrf64) -> float:
+        def custom_wrapper(log_theta: Arrf64) -> float:
             try:
+                theta = np.exp(log_theta)
                 gp.kernel.set_params(theta[:-1], _validate=False)
                 gp._noise = theta[-1]
                 gp._fit_without_optimization()
@@ -106,16 +108,22 @@ def _get_objective_wrappers(
     loss_fn = LOSS_FUNCTIONS[obj_lower]
     use_grad = LOSS_FUNCTION_HAS_GRAD[obj_lower]
 
-    def func_wrapper_grad(theta: Arrf64) -> tuple[float, NDArray]:
+    def func_wrapper_grad(log_theta: Arrf64) -> tuple[float, NDArray]:
         try:
+            theta = np.exp(log_theta)
             gp.kernel.set_params(theta[:-1], _validate=False)
             gp._noise = theta[-1]
-            return loss_fn(gp, return_gradient=True)
-        except (LinAlgError, ValueError):
-            return float(np.inf), np.zeros_like(theta)
 
-    def func_wrapper_no_grad(theta: Arrf64) -> float:
+            loss, grad_linear = loss_fn(gp, return_gradient=True)
+            grad_log = grad_linear * theta
+
+            return loss, grad_log
+        except (LinAlgError, ValueError):
+            return float(np.inf), np.zeros_like(log_theta)
+
+    def func_wrapper_no_grad(log_theta: Arrf64) -> float:
         try:
+            theta = np.exp(log_theta)
             gp.kernel.set_params(theta[:-1], _validate=False)
             gp._noise = theta[-1]
             return float(loss_fn(gp, return_gradient=False))
@@ -127,8 +135,8 @@ def _get_objective_wrappers(
 
 
 def _generate_starting_points(
-    initial_theta: Arrf64,
-    bounds: list[tuple[float, float]],
+    initial_log_theta: Arrf64,
+    log_bounds: list[tuple[float, float]],
     n_restarts: int,
 ) -> list[Arrf64]:
     """Generates starting points for optimization with Latin Hypercube Sampling.
@@ -140,27 +148,25 @@ def _generate_starting_points(
     explores all orders of magnitude uniformly.
 
     Args:
-        initial_theta: Current hyperparameter values.
-        bounds: Bounds for each hyperparameter.
+        initial_log_theta: Current hyperparameter values in natural log-space.
+        log_bounds: Natural log-space bounds for each hyperparameter.
         n_restarts: Number of random starting points to generate.
 
     Returns:
         List of starting points including initial_theta.
     """
-    starting_points = [initial_theta]
+    starting_points = [initial_log_theta]
 
     if n_restarts > 0:
-        sampler = qmc.LatinHypercube(d=len(bounds))
+        sampler = qmc.LatinHypercube(d=len(log_bounds))
         samples = sampler.random(n_restarts)
 
         for sample in samples:
-            theta = []
-            for j, (low, high) in enumerate(bounds):
-                # sample in log space: 10^uniform(log10(low), log10(high))
-                log_low, log_high = np.log10(low), np.log10(high)
+            log_theta = []
+            for j, (log_low, log_high) in enumerate(log_bounds):
                 log_sample = log_low + sample[j] * (log_high - log_low)
-                theta.append(10**log_sample)
-            starting_points.append(np.asarray(theta, dtype=np.float64))
+                log_theta.append(log_sample)
+            starting_points.append(np.asarray(log_theta, dtype=np.float64))
 
     return starting_points
 
@@ -203,22 +209,25 @@ def optimize_hyperparameters(
     initial_theta = np.concatenate([initial_kernel_params, initial_noise])
 
     noise_bounds = [(1e-6, 1e1)]
-    bounds = gp.kernel._bounds + noise_bounds
+    linear_bounds = gp.kernel._bounds + noise_bounds
+
+    initial_log_theta = np.log(initial_theta)
+    log_bounds = [(np.log(low), np.log(high)) for low, high in linear_bounds]
 
     # generate starting points
     starting_points = _generate_starting_points(
-        initial_theta,
-        bounds,
+        initial_log_theta,
+        log_bounds,
         n_restarts,
     )
 
     # phase 1: Global Screening
     screening_results = []
-    for start_theta in starting_points:
+    for start_log_theta in starting_points:
         try:
-            loss = func_wrapper_screening(start_theta)
+            loss = func_wrapper_screening(start_log_theta)
             if loss != np.inf:
-                screening_results.append((loss, start_theta))
+                screening_results.append((loss, start_log_theta))
         except (LinAlgError, ValueError):
             continue
 
@@ -233,17 +242,17 @@ def optimize_hyperparameters(
     top_candidates = [theta for _, theta in screening_results[:n_to_refine]]
 
     # phase 2: Local Refinement
-    best_theta = top_candidates[0]
+    best_log_theta = top_candidates[0]
     best_loss = screening_results[0][0]
 
-    for candidate_theta in top_candidates:
+    for candidate_log_theta in top_candidates:
         try:
             result = minimize(
                 func_wrapper,
-                candidate_theta,
+                candidate_log_theta,
                 method="L-BFGS-B",
                 jac=use_grad,
-                bounds=bounds,
+                bounds=log_bounds,
                 options={
                     "maxiter": LOCAL_MAXITER,
                     "ftol": 1e-5,
@@ -253,12 +262,13 @@ def optimize_hyperparameters(
 
             if result.fun < best_loss:
                 best_loss = result.fun
-                best_theta = result.x
+                best_log_theta = result.x
 
         except (LinAlgError, ValueError):
             continue
 
     # finalize
+    best_theta = np.exp(best_log_theta)
     gp.kernel.set_params(best_theta[:-1], _validate=False)
     gp._noise = best_theta[-1]
     gp._fit_without_optimization()

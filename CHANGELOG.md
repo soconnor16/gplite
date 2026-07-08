@@ -2,6 +2,13 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.5] - 2026-07-08
+
+### Changed
+
+- **Optimization** All hyperparameter optimization has been extended to work in
+log-space for more robust fitting in complex parameter spaces.
+
 ## [3.1.4] - 2026-07-08
 
 ### Fixed
