@@ -78,8 +78,8 @@ y_pred = learner.gp.predict(X_test)
 ## **Requirements**
 
 - Python >= 3.10
-- NumPy >= 2.2.6
-- SciPy >= 1.15.3
+- NumPy >= 1.24
+- SciPy >= 1.10
 
 ## **License**
 
