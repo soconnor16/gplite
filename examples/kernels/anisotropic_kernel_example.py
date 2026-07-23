@@ -80,7 +80,7 @@ axes[2].set_ylabel("x₂", fontsize=11)
 plt.colorbar(im2, ax=axes[2])
 
 fig.suptitle(
-    "Anisotropic Kernels — Learning Per-Dimension Length Scales", fontsize=16
+    "Anisotropic Kernels - Learning Per-Dimension Length Scales", fontsize=16
 )
 fig.tight_layout()
 plt.show()

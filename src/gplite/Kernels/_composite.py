@@ -199,7 +199,7 @@ class CompositeKernel(Kernel):
             err_msg = "Error: Unknown composite kernel type"
             raise NotImplementedError(err_msg)
 
-        return f"( {alpha:.6e} * ( {combined_parts} ) )"
+        return f"( {alpha:.15e} * ( {combined_parts} ) )"
 
     def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
         """Validates anisotropic hyperparameter shapes for all child kernels.

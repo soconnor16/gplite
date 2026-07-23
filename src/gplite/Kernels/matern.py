@@ -231,10 +231,7 @@ class MaternKernel(Kernel):
 
             if self.isotropic:
                 grad = (
-                    3.0
-                    * np.sum(sq_diff, axis=2, keepdims=True)
-                    / l_cubed[0]
-                    * exp_term
+                    3.0 * np.sum(sq_diff, axis=2, keepdims=True) / l_cubed[0] * exp_term
                 )
             else:
                 grad = 3.0 * sq_diff / l_cubed * exp_term
@@ -293,10 +290,7 @@ class MaternKernel(Kernel):
             exp_3d = exp_neg_z[:, :, np.newaxis]
             if self.isotropic:
                 grad = (
-                    3.0
-                    * np.sum(sq_diff, axis=2, keepdims=True)
-                    / l_cubed[0]
-                    * exp_3d
+                    3.0 * np.sum(sq_diff, axis=2, keepdims=True) / l_cubed[0] * exp_3d
                 )
             else:
                 grad = 3.0 * sq_diff / l_cubed * exp_3d
@@ -387,7 +381,7 @@ class MaternKernel(Kernel):
         for i, var in enumerate(variable_names):
             ls_val = ls_squared[0] if self.isotropic else ls_squared[i]
             dist_parts.append(
-                f"( {var} - {training_point[i]:.6e} )^2 / {ls_val:.6e}",
+                f"( {var} - {training_point[i]:.15e} )^2 / {ls_val:.15e}",
             )
 
         dist_sum = " + ".join(dist_parts)
@@ -396,17 +390,17 @@ class MaternKernel(Kernel):
         if self._nu == 1.5:
             c = np.sqrt(3.0)
             return (
-                f"( {alpha:.6e} * ( 1 + {c:.6e} * {r_str} ) "
-                f"* exp( -{c:.6e} * {r_str} ) )"
+                f"( {alpha:.15e} * ( 1 + {c:.15e} * {r_str} ) "
+                f"* exp( -{c:.15e} * {r_str} ) )"
             )
 
         # nu = 2.5
         c = np.sqrt(5.0)
         c_sq = 5.0 / 3.0
         return (
-            f"( {alpha:.6e} * ( 1 + {c:.6e} * {r_str} "
-            f"+ {c_sq:.6e} * ( {dist_sum} ) ) "
-            f"* exp( -{c:.6e} * {r_str} ) )"
+            f"( {alpha:.15e} * ( 1 + {c:.15e} * {r_str} "
+            f"+ {c_sq:.15e} * ( {dist_sum} ) ) "
+            f"* exp( -{c:.15e} * {r_str} ) )"
         )
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:

@@ -198,11 +198,7 @@ class RBFKernel(Kernel):
         grad_length_scale = np.zeros((num_rows, num_columns, num_params))
 
         for dim in range(num_features):
-            l_d = (
-                self.length_scale[0]
-                if self.isotropic
-                else self.length_scale[dim]
-            )
+            l_d = self.length_scale[0] if self.isotropic else self.length_scale[dim]
 
             # difference array between x1 and x2 for this dimension
             diff_d = x1[:, dim : dim + 1] - x2[:, dim : dim + 1].T
@@ -335,17 +331,17 @@ class RBFKernel(Kernel):
             # handle different training point cases to save tokens
             # when possible
             if abs(tp) < EPSILON:
-                diff_str = f"{coeff:.6e}*{var}^2"
+                diff_str = f"{coeff:.15e}*{var}^2"
             elif tp < 0.0:
-                diff_str = f"{coeff:.6e}*({var}+{abs(tp):.6e})^2"
+                diff_str = f"{coeff:.15e}*({var}+{abs(tp):.15e})^2"
             else:
-                diff_str = f"{coeff:.6e}*({var}-{tp:.6e})^2"
+                diff_str = f"{coeff:.15e}*({var}-{tp:.15e})^2"
 
             difference_parts.append(diff_str)
 
         full_dist_str = " + ".join(difference_parts)
 
-        return f"{alpha:.6e}*exp({full_dist_str})"
+        return f"{alpha:.15e}*exp({full_dist_str})"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
         """Computes the diagonal of the kernel matrix K(x, x).

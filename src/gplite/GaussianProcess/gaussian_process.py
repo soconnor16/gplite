@@ -97,9 +97,7 @@ class GaussianProcess:
             ValidationError: If kernel is not a valid Kernel subclass.
         """
         if not isinstance(kernel, Kernel):
-            err_msg = (
-                "Error: 'kernel' argument must be a valid kernel subclass."
-            )
+            err_msg = "Error: 'kernel' argument must be a valid kernel subclass."
             raise ValidationError(err_msg)
 
         self.kernel = kernel
@@ -241,8 +239,7 @@ class GaussianProcess:
         # model must be fitted before prediction
         if self.alpha.size == 0 or self._lower_chol.size == 0:
             err_msg = (
-                "Error: Model needs to be fitted before it can be used for "
-                "prediction."
+                "Error: Model needs to be fitted before it can be used for prediction."
             )
             raise RuntimeError(err_msg)
 
@@ -387,8 +384,7 @@ class GaussianProcess:
         """
         if self.alpha.size == 0:
             warning_msg = (
-                "Warning: Gaussian Process is not fitted, returning empty "
-                "string."
+                "Warning: Gaussian Process is not fitted, returning empty string."
             )
             warnings.warn(warning_msg, stacklevel=2)
             return ""
@@ -405,7 +401,7 @@ class GaussianProcess:
             standardized_vars = []
             for i, var in enumerate(variable_names):
                 standardized_vars.append(
-                    f"(({var} - {self._x_mean[i]:.6e}) / {self._x_std[i]:.6e})",
+                    f"(({var} - {self._x_mean[i]:.15e}) / {self._x_std[i]:.15e})"
                 )
         else:
             standardized_vars = variable_names
@@ -423,6 +419,6 @@ class GaussianProcess:
         # target data is always standardized, this unstandardizes it if the
         # unstandardized mean was not already 0
         if np.abs(self._y_mean) > EPSILON:
-            return f"{full_expression} + {self._y_mean:.6e}"
+            return f"{full_expression} + {self._y_mean:.15e}"
 
         return full_expression

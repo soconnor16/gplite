@@ -1,6 +1,6 @@
 [project]
 name = "gplite"
-version = "3.1.5"
+version = "3.1.6"
 description = "Lightweight Gaussian Process regression library"
 license = { file = "LICENSE" }
 authors = [{ name = "Stephen O'Connor", email = "soconnor10111@gmail.com" }]
@@ -14,7 +14,7 @@ keywords = [
     "bayesian"
 ]
 dependencies = [
-    "numpy>=1.24",
+    "numpy>=1.24.0",
     "scipy>=1.10.0",
 ]
 
@@ -32,3 +32,18 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gplite"]
+
+[dependency-groups]
+dev = [
+    "openmm>=8.0.0",
+    "pytest>=9.0.0",
+    "pytest-cov>=7.0.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (finite-difference gradient checks, long optimization runs). Deselect with: pytest -m 'not slow'",
+]
+
+[tool.ruff]
+exclude = ["examples/", "tests/"]

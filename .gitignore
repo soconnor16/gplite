@@ -18,3 +18,4 @@ uv.lock
 TODO
 .env
 .rumdl_cache/
+.pytest_cache/

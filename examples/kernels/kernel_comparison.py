@@ -72,7 +72,7 @@ for ax, (name, y_pred, y_std) in zip(axes, results):
 
 axes[0].set_ylabel("y", fontsize=12)
 fig.suptitle(
-    "Kernel Comparison — Same Data, Different Assumptions", fontsize=16
+    "Kernel Comparison - Same Data, Different Assumptions", fontsize=16
 )
 fig.tight_layout()
 plt.show()
