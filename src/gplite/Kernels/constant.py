@@ -231,7 +231,7 @@ class ConstantKernel(Kernel):
             A string representation of the mathematical definition of the
             kernel function at the given training point.
         """
-        return f"{(alpha * self.constant[0]):.6e}"
+        return f"{(alpha * self.constant[0]):.15e}"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
         """Computes the diagonal of the kernel matrix K(x, x).

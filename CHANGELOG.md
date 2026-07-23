@@ -2,6 +2,18 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.6] - 2026-07-23
+
+### Added
+
+- **Testing Suite** Comprehensive testing modules for validating model
+functionality.
+
+### Changed
+
+- **Model Strings** Model strings now truncate values at 15 decimal places
+(previously 6).
+
 ## [3.1.5] - 2026-07-08
 
 ### Changed
@@ -185,7 +197,7 @@ computation instead of O(n²)
 - Active learning optimizer now refits the model after setting final
 hyperparameters, matching GP optimizer behavior
 - Active learning optimizer fallback path now refits when all screening runs fail
-- Missing `raise` in `validate_variable_names` — wrong number of variable names
+- Missing `raise` in `validate_variable_names` - wrong number of variable names
 was silently accepted
 - Active learning `max_points` budget now correctly accounts for initial
 training points and clamps `batch_size` to prevent overshooting
