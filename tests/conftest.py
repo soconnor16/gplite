@@ -6,6 +6,7 @@ function parameters - pytest discovers them automatically.
 
 import numpy as np
 import pytest
+
 from gplite.ActiveLearning.active_learning import ActiveLearner
 from gplite.GaussianProcess.gaussian_process import GaussianProcess
 from gplite.Kernels.constant import ConstantKernel

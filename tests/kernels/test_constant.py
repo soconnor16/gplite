@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite.Kernels.constant import ConstantKernel
 
@@ -22,19 +23,19 @@ def _is_psd(K: np.ndarray, tol: float = 1e-8) -> bool:
 
 
 class TestConstantKernelInit:
-    def test_valid_constant(self):
+    def test_valid_constant(self) -> None:
         k = ConstantKernel(constant=2.0)
         np.testing.assert_allclose(k.constant, [2.0])
 
-    def test_zero_raises(self):
+    def test_zero_raises(self) -> None:
         with pytest.raises(ValidationError):
             ConstantKernel(constant=0.0)
 
-    def test_negative_raises(self):
+    def test_negative_raises(self) -> None:
         with pytest.raises(ValidationError):
             ConstantKernel(constant=-1.0)
 
-    def test_custom_bounds_accepted(self):
+    def test_custom_bounds_accepted(self) -> None:
         k = ConstantKernel(constant=1.0, bounds={"constant": (0.01, 100.0)})
         assert k.bounds["constant"][0] == (np.float64(0.01), np.float64(100.0))
 
@@ -45,7 +46,7 @@ class TestConstantKernelInit:
 
 
 class TestConstantHyperparameters:
-    def test_hyperparameters_tuple(self):
+    def test_hyperparameters_tuple(self) -> None:
         k = ConstantKernel(constant=1.0)
         assert k.hyperparameters == ("constant",)
 
@@ -56,23 +57,23 @@ class TestConstantHyperparameters:
 
 
 class TestConstantGetSetParams:
-    def test_get_returns_array(self):
+    def test_get_returns_array(self) -> None:
         k = ConstantKernel(constant=3.0)
         params = k.get_params()
         assert params.shape == (1,)
         np.testing.assert_allclose(params, [3.0])
 
-    def test_set_updates_value(self):
+    def test_set_updates_value(self) -> None:
         k = ConstantKernel(constant=1.0)
         k.set_params(np.array([7.0]))
         np.testing.assert_allclose(k.get_params(), [7.0])
 
-    def test_nonpositive_set_raises(self):
+    def test_nonpositive_set_raises(self) -> None:
         k = ConstantKernel(constant=1.0)
         with pytest.raises(ValidationError):
             k.set_params(np.array([-1.0]))
 
-    def test_wrong_size_raises(self):
+    def test_wrong_size_raises(self) -> None:
         k = ConstantKernel(constant=1.0)
         with pytest.raises(ValidationError):
             k.set_params(np.array([1.0, 2.0]))
@@ -84,40 +85,40 @@ class TestConstantGetSetParams:
 
 
 class TestConstantKernelCompute:
-    def test_output_shape_square(self):
+    def test_output_shape_square(self) -> None:
         k = ConstantKernel(constant=2.0)
         x = _make_x(8, 2)
         K = k.compute(x, x)
         assert K.shape == (8, 8)
 
-    def test_output_shape_rect(self):
+    def test_output_shape_rect(self) -> None:
         k = ConstantKernel(constant=2.0)
         x1 = _make_x(5, 2)
         x2 = _make_x(7, 2)
         K = k.compute(x1, x2)
         assert K.shape == (5, 7)
 
-    def test_all_entries_equal_constant(self):
+    def test_all_entries_equal_constant(self) -> None:
         c = 3.5
         k = ConstantKernel(constant=c)
         x = _make_x(6, 2)
         K = k._compute(x, x)
         np.testing.assert_allclose(K, c * np.ones((6, 6)), atol=1e-12)
 
-    def test_symmetric(self):
+    def test_symmetric(self) -> None:
         k = ConstantKernel(constant=2.0)
         x = _make_x(6, 2)
         K = k._compute(x, x)
         np.testing.assert_allclose(K, K.T, atol=1e-12)
 
-    def test_psd(self):
+    def test_psd(self) -> None:
         """Constant kernel with c > 0 is PSD (all eigenvalues are 0 except one)."""
         k = ConstantKernel(constant=2.0)
         x = _make_x(6, 2)
         K = k._compute(x, x)
         assert _is_psd(K)
 
-    def test_independent_of_input_values(self):
+    def test_independent_of_input_values(self) -> None:
         """The kernel value should not depend on the actual input points."""
         k = ConstantKernel(constant=2.0)
         x1 = _make_x(5, 2, seed=0)
@@ -133,21 +134,21 @@ class TestConstantKernelCompute:
 
 
 class TestConstantKernelGradient:
-    def test_gradient_shape(self):
+    def test_gradient_shape(self) -> None:
         """∂K/∂c = 1 everywhere, so gradient should be shape (n, m, 1)."""
         k = ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
         (grad,) = k._gradient(x, x)
         assert grad.shape == (5, 5, 1)
 
-    def test_gradient_all_ones(self):
+    def test_gradient_all_ones(self) -> None:
         k = ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
         (grad,) = k._gradient(x, x)
         np.testing.assert_allclose(grad[:, :, 0], np.ones((5, 5)), atol=1e-12)
 
     @pytest.mark.slow
-    def test_gradient_matches_finite_difference(self):
+    def test_gradient_matches_finite_difference(self) -> None:
         k = ConstantKernel(constant=2.0)
         x = _make_x(4, 2, seed=9)
         (grad,) = k._gradient(x, x)
@@ -171,7 +172,7 @@ class TestConstantKernelGradient:
 
 
 class TestConstantComputeWithGradient:
-    def test_K_matches_compute(self):
+    def test_K_matches_compute(self) -> None:
         k = ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
         K_direct = k._compute(x, x)

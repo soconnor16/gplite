@@ -36,19 +36,18 @@ end-to-end examples can be found in the [examples](examples/) directory.
 import numpy as np
 from gplite import GaussianProcess, RBFKernel, PeriodicKernel
 
-X_train, y_train = ... # load your data
+X_train, y_train = ...  # load your data
 
 # easily combine kernels for complex data
-kernel = (
-    RBFKernel(length_scale=2.0) + 
-    PeriodicKernel(length_scale=1.0, period=2*np.pi)
+kernel = RBFKernel(length_scale=2.0) + PeriodicKernel(
+    length_scale=1.0, period=2 * np.pi
 )
 
 # fit your model and use it for predictions
 gp = GaussianProcess(kernel)
 gp.fit(X_train, y_train, optimize=True)
 
-y_mean, y_std = gp.predict(X_test, return_std=True)
+y_mean, y_std = gp.predict(X_test, return_std=True)  # X_test defined by user
 ```
 
 ### 2. Automated Active Learning
@@ -60,9 +59,7 @@ learner = ActiveLearner(kernel=kernel, x_full=X_full, y_full=y_full)
 
 # automatically train the model where it is most uncertain
 learner.learn(
-    learning_strategy="uncertainty", 
-    rmse_threshold=0.1, 
-    max_points=50
+    learning_strategy="uncertainty", rmse_threshold=0.1, max_points=50
 )
 
 y_pred = learner.gp.predict(X_test)

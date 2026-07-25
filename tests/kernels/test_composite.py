@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite.Kernels._composite import AdditiveKernel, ProductKernel
 from gplite.Kernels.constant import ConstantKernel
@@ -30,19 +31,19 @@ def _is_psd(K: np.ndarray, tol: float = 1e-8) -> bool:
 
 
 class TestCompositeKernelConstruction:
-    def test_add_returns_additive_kernel(self):
+    def test_add_returns_additive_kernel(self) -> None:
         k = RBFKernel(length_scale=1.0) + MaternKernel(length_scale=1.0, nu=2.5)
         assert isinstance(k, AdditiveKernel)
 
-    def test_mul_returns_product_kernel(self):
+    def test_mul_returns_product_kernel(self) -> None:
         k = RBFKernel(length_scale=1.0) * ConstantKernel(constant=2.0)
         assert isinstance(k, ProductKernel)
 
-    def test_invalid_operand_raises(self):
+    def test_invalid_operand_raises(self) -> None:
         with pytest.raises(ValidationError, match="Kernel"):
             AdditiveKernel(RBFKernel(length_scale=1.0), "not_a_kernel")
 
-    def test_chaining_three_additive_kernels(self):
+    def test_chaining_three_additive_kernels(self) -> None:
         """k1 + k2 + k3 should remain flat (not doubly nested)."""
         k1 = RBFKernel(length_scale=1.0)
         k2 = MaternKernel(length_scale=1.0, nu=2.5)
@@ -51,7 +52,7 @@ class TestCompositeKernelConstruction:
         assert isinstance(composite, AdditiveKernel)
         assert len(composite.kernels) == 3
 
-    def test_chaining_three_product_kernels(self):
+    def test_chaining_three_product_kernels(self) -> None:
         k1 = RBFKernel(length_scale=1.0)
         k2 = ConstantKernel(constant=2.0)
         k3 = MaternKernel(length_scale=1.0, nu=1.5)
@@ -71,20 +72,20 @@ class TestAdditiveKernelCompute:
         k2 = MaternKernel(length_scale=1.0, nu=2.5)
         return k1 + k2, k1, k2
 
-    def test_output_shape_square(self):
+    def test_output_shape_square(self) -> None:
         k, _, _ = self._make()
         x = _make_x(8, 2)
         K = k.compute(x, x)
         assert K.shape == (8, 8)
 
-    def test_output_shape_rect(self):
+    def test_output_shape_rect(self) -> None:
         k, _, _ = self._make()
         x1 = _make_x(5, 2)
         x2 = _make_x(7, 2)
         K = k.compute(x1, x2)
         assert K.shape == (5, 7)
 
-    def test_equals_sum_of_children(self):
+    def test_equals_sum_of_children(self) -> None:
         """K_sum(x, x') should equal K1(x, x') + K2(x, x')."""
         k_sum, k1, k2 = self._make()
         x = _make_x(6, 2)
@@ -92,19 +93,19 @@ class TestAdditiveKernelCompute:
         K_expected = k1._compute(x, x) + k2._compute(x, x)
         np.testing.assert_allclose(K_add, K_expected, atol=1e-12)
 
-    def test_symmetric(self):
+    def test_symmetric(self) -> None:
         k, _, _ = self._make()
         x = _make_x(8, 2)
         K = k._compute(x, x)
         np.testing.assert_allclose(K, K.T, atol=1e-12)
 
-    def test_psd(self):
+    def test_psd(self) -> None:
         k, _, _ = self._make()
         x = _make_x(8, 2)
         K = k._compute(x, x)
         assert _is_psd(K)
 
-    def test_anisotropic_component(self):
+    def test_anisotropic_component(self) -> None:
         k = RBFKernel(length_scale=[1.0, 2.0], isotropic=False) + MaternKernel(
             length_scale=[0.5, 1.5], nu=1.5, isotropic=False
         )
@@ -125,20 +126,20 @@ class TestProductKernelCompute:
         k2 = ConstantKernel(constant=2.0)
         return k1 * k2, k1, k2
 
-    def test_output_shape_square(self):
+    def test_output_shape_square(self) -> None:
         k, _, _ = self._make()
         x = _make_x(8, 2)
         K = k.compute(x, x)
         assert K.shape == (8, 8)
 
-    def test_output_shape_rect(self):
+    def test_output_shape_rect(self) -> None:
         k, _, _ = self._make()
         x1 = _make_x(5, 2)
         x2 = _make_x(7, 2)
         K = k.compute(x1, x2)
         assert K.shape == (5, 7)
 
-    def test_equals_product_of_children(self):
+    def test_equals_product_of_children(self) -> None:
         """K_prod(x, x') should equal K1(x, x') * K2(x, x')."""
         k_prod, k1, k2 = self._make()
         x = _make_x(6, 2)
@@ -146,19 +147,19 @@ class TestProductKernelCompute:
         K_expected = k1._compute(x, x) * k2._compute(x, x)
         np.testing.assert_allclose(K_prod, K_expected, atol=1e-12)
 
-    def test_symmetric(self):
+    def test_symmetric(self) -> None:
         k, _, _ = self._make()
         x = _make_x(8, 2)
         K = k._compute(x, x)
         np.testing.assert_allclose(K, K.T, atol=1e-12)
 
-    def test_psd(self):
+    def test_psd(self) -> None:
         k, _, _ = self._make()
         x = _make_x(8, 2)
         K = k._compute(x, x)
         assert _is_psd(K)
 
-    def test_constant_product_scales_kernel(self):
+    def test_constant_product_scales_kernel(self) -> None:
         """RBF * Constant(c) should equal c * RBF."""
         rbf = RBFKernel(length_scale=1.0)
         c = 3.0
@@ -168,10 +169,10 @@ class TestProductKernelCompute:
         K_rbf = rbf._compute(x, x)
         np.testing.assert_allclose(K_prod, c * K_rbf, atol=1e-12)
 
-    def test_anisotropic_component(self):
-        k = RBFKernel(length_scale=[1.0, 2.0], isotropic=False) * ConstantKernel(
-            constant=2.0
-        )
+    def test_anisotropic_component(self) -> None:
+        k = RBFKernel(
+            length_scale=[1.0, 2.0], isotropic=False
+        ) * ConstantKernel(constant=2.0)
         x = _make_x(6, 2)
         K = k.compute(x, x)
         assert K.shape == (6, 6)
@@ -184,23 +185,25 @@ class TestProductKernelCompute:
 
 
 class TestCompositeHyperparameters:
-    def test_additive_hyperparameters_concatenated(self):
+    def test_additive_hyperparameters_concatenated(self) -> None:
         k = RBFKernel(length_scale=1.0) + ConstantKernel(constant=2.0)
         assert k.hyperparameters == ("length_scale", "constant")
 
-    def test_product_hyperparameters_concatenated(self):
+    def test_product_hyperparameters_concatenated(self) -> None:
         k = RBFKernel(length_scale=1.0) * ConstantKernel(constant=2.0)
         assert k.hyperparameters == ("length_scale", "constant")
 
-    def test_bounds_has_unique_keys(self):
+    def test_bounds_has_unique_keys(self) -> None:
         """When two same-type kernels are composed, bounds keys must be unique."""
         k = RBFKernel(length_scale=1.0) + RBFKernel(length_scale=2.0)
         bounds = k.bounds
         assert "kernel_0_length_scale" in bounds
         assert "kernel_1_length_scale" in bounds
 
-    def test_bounds_length_matches_params(self):
-        k = PeriodicKernel(length_scale=1.0, period=2.0) + RBFKernel(length_scale=1.0)
+    def test_bounds_length_matches_params(self) -> None:
+        k = PeriodicKernel(length_scale=1.0, period=2.0) + RBFKernel(
+            length_scale=1.0
+        )
         flat_bounds = k._bounds
         params = k.get_params()
         assert len(flat_bounds) == len(params)
@@ -212,12 +215,12 @@ class TestCompositeHyperparameters:
 
 
 class TestCompositeGetSetParams:
-    def test_additive_get_concatenated(self):
+    def test_additive_get_concatenated(self) -> None:
         k = RBFKernel(length_scale=1.5) + ConstantKernel(constant=2.5)
         params = k.get_params()
         np.testing.assert_allclose(params, [1.5, 2.5])
 
-    def test_additive_set_dispatches_to_children(self):
+    def test_additive_set_dispatches_to_children(self) -> None:
         k1 = RBFKernel(length_scale=1.0)
         k2 = ConstantKernel(constant=1.0)
         k = k1 + k2
@@ -225,7 +228,7 @@ class TestCompositeGetSetParams:
         np.testing.assert_allclose(k1.get_params(), [3.0])
         np.testing.assert_allclose(k2.get_params(), [4.0])
 
-    def test_product_get_set_roundtrip(self):
+    def test_product_get_set_roundtrip(self) -> None:
         k = RBFKernel(length_scale=1.0) * ConstantKernel(constant=2.0)
         original = k.get_params().copy()
         k.set_params(np.array([5.0, 6.0]))
@@ -233,7 +236,7 @@ class TestCompositeGetSetParams:
         k.set_params(original)
         np.testing.assert_allclose(k.get_params(), original)
 
-    def test_anisotropic_composite_get_set(self):
+    def test_anisotropic_composite_get_set(self) -> None:
         """Composite with anisotropic children should correctly concatenate params."""
         k1 = RBFKernel(length_scale=[1.0, 2.0], isotropic=False)
         k2 = MaternKernel(length_scale=[0.5, 1.5], nu=2.5, isotropic=False)
@@ -250,13 +253,13 @@ class TestCompositeGetSetParams:
 
 
 class TestCompositeGradient:
-    def test_additive_gradient_is_tuple(self):
+    def test_additive_gradient_is_tuple(self) -> None:
         k = RBFKernel(length_scale=1.0) + ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
         grads = k._gradient(x, x)
         assert isinstance(grads, tuple)
 
-    def test_additive_gradient_num_components(self):
+    def test_additive_gradient_num_components(self) -> None:
         """Additive kernel has one gradient per child hyperparameter."""
         k = RBFKernel(length_scale=1.0) + ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
@@ -264,14 +267,14 @@ class TestCompositeGradient:
         # 1 gradient for RBF ls + 1 gradient for Constant c = 2 total
         assert len(grads) == 2
 
-    def test_product_gradient_is_tuple(self):
+    def test_product_gradient_is_tuple(self) -> None:
         k = RBFKernel(length_scale=1.0) * ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
         grads = k._gradient(x, x)
         assert isinstance(grads, tuple)
 
     @pytest.mark.slow
-    def test_additive_gradient_matches_fd(self):
+    def test_additive_gradient_matches_fd(self) -> None:
         """Finite-difference check for additive kernel gradient."""
         k = RBFKernel(length_scale=1.5) + ConstantKernel(constant=2.0)
         x = _make_x(4, 2, seed=10)
@@ -302,7 +305,7 @@ class TestCompositeGradient:
             )
 
     @pytest.mark.slow
-    def test_product_gradient_matches_fd(self):
+    def test_product_gradient_matches_fd(self) -> None:
         """Finite-difference check for product kernel gradient."""
         k = RBFKernel(length_scale=1.5) * ConstantKernel(constant=2.0)
         x = _make_x(4, 2, seed=11)
@@ -339,14 +342,14 @@ class TestCompositeGradient:
 
 
 class TestCompositeComputeWithGradient:
-    def test_additive_K_matches_compute(self):
+    def test_additive_K_matches_compute(self) -> None:
         k = RBFKernel(length_scale=1.0) + MaternKernel(length_scale=1.0, nu=2.5)
         x = _make_x(5, 2)
         K_direct = k._compute(x, x)
         K_cwg, _ = k._compute_with_gradient(x, x)
         np.testing.assert_allclose(K_cwg, K_direct, atol=1e-12)
 
-    def test_product_K_matches_compute(self):
+    def test_product_K_matches_compute(self) -> None:
         k = RBFKernel(length_scale=1.0) * ConstantKernel(constant=2.0)
         x = _make_x(5, 2)
         K_direct = k._compute(x, x)

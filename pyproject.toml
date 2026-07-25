@@ -1,6 +1,6 @@
 [project]
 name = "gplite"
-version = "3.1.6"
+version = "3.1.7"
 description = "Lightweight Gaussian Process regression library"
 license = { file = "LICENSE" }
 authors = [{ name = "Stephen O'Connor", email = "soconnor10111@gmail.com" }]
@@ -47,3 +47,56 @@ markers = [
 
 [tool.ruff]
 exclude = ["examples/", "tests/"]
+line-length = 80
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "ANN", # flake8 type annotations
+    "B", # flake8 bugbear
+    "A", # flake8 builtins
+    "C4", # flake8 comprehensions
+    "EM", # flake8 error messages
+    "FA", # flake8 future annotations
+    "LOG", # flake8 logging
+    "G", # flake8 logging format
+    "PIE", # flake8 PIE
+    "PYI", # flake8 pyi
+    "RET",# flake8 return statements
+    "SIM", # flake8 simplify
+    "TC", # flake8 type checking
+    "ARG", # flake8 unused arguments
+    "PTH", # flake8 pathlib
+    "I", # isort
+    "NPY", # numpy rules
+    "PERF", # perflint
+    "E", # error
+    "W", # warning
+    "D", # pydocstyle
+    "DOC", # pydoclint
+    "F", # pyflakes
+    "PLE", # pylint error
+    "UP", # pyupgrade
+    "FURB", # refurb
+]
+
+ignore = [
+    "DOC502",
+    "D421",
+    "PERF203",
+    "E266",
+    "PYI042",
+    "ANN401",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["D104"]
+"constant.py" = ["ARG002"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+docstring-code-line-length = 80

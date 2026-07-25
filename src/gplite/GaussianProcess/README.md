@@ -7,9 +7,10 @@ Core Gaussian Process regression implementation with automatic hyperparameter op
 A Gaussian Process (GP) is a non-parametric approach to machine learning that
 defines a distribution over possible functions. GPs are probabilistic models,
 which means that their predictions come with information on their
-**uncertainty**. Unlike traditional models that output a single deterministic guess, a
-GP outputs a full probability distribution. It tells you not only *what* it
-thinks the answer is, but exactly how *confident* it is in that prediction.
+**uncertainty**. Unlike traditional models that output a single deterministic
+guess, a GP outputs a full probability distribution. It tells you not only
+*what* it thinks the answer is, but exactly how *confident* it is in that
+prediction.
 
 Because they are deeply grounded in Bayesian probability, GPs are exceptionally
 data-efficient. They can model complex, non-linear relationships using a fraction

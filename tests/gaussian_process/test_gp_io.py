@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite.GaussianProcess.gaussian_process import GaussianProcess
 from gplite.Kernels.rbf import RBFKernel
@@ -24,19 +25,19 @@ def _fitted_gp() -> GaussianProcess:
 
 
 class TestGPSave:
-    def test_save_creates_file(self, tmp_path: Path):
+    def test_save_creates_file(self, tmp_path: Path) -> None:
         gp = _fitted_gp()
         filepath = tmp_path / "model.pkl"
         gp.save(filepath)
         assert filepath.exists()
 
-    def test_save_accepts_string_path(self, tmp_path: Path):
+    def test_save_accepts_string_path(self, tmp_path: Path) -> None:
         gp = _fitted_gp()
         filepath = str(tmp_path / "model.pkl")
         gp.save(filepath)
         assert Path(filepath).exists()
 
-    def test_save_invalid_path_type_raises(self):
+    def test_save_invalid_path_type_raises(self) -> None:
         gp = _fitted_gp()
         with pytest.raises(ValidationError):
             gp.save(12345)
@@ -48,7 +49,7 @@ class TestGPSave:
 
 
 class TestGPLoad:
-    def test_save_load_roundtrip(self, tmp_path: Path):
+    def test_save_load_roundtrip(self, tmp_path: Path) -> None:
         gp = _fitted_gp()
         filepath = tmp_path / "model.pkl"
         gp.save(filepath)
@@ -56,7 +57,7 @@ class TestGPLoad:
         loaded = GaussianProcess.load(filepath)
         assert isinstance(loaded, GaussianProcess)
 
-    def test_loaded_model_predictions_match(self, tmp_path: Path):
+    def test_loaded_model_predictions_match(self, tmp_path: Path) -> None:
         gp = _fitted_gp()
         filepath = tmp_path / "model.pkl"
         gp.save(filepath)
@@ -67,11 +68,11 @@ class TestGPLoad:
             gp.predict(x_test), loaded.predict(x_test), atol=1e-10
         )
 
-    def test_load_nonexistent_file_raises(self, tmp_path: Path):
+    def test_load_nonexistent_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
             GaussianProcess.load(tmp_path / "nonexistent.pkl")
 
-    def test_load_wrong_type_raises(self, tmp_path: Path):
+    def test_load_wrong_type_raises(self, tmp_path: Path) -> None:
         """Loading a file that doesn't contain a GaussianProcess should raise
         TypeError.
         """
@@ -81,11 +82,11 @@ class TestGPLoad:
         with pytest.raises(TypeError):
             GaussianProcess.load(filepath)
 
-    def test_load_invalid_path_type_raises(self):
+    def test_load_invalid_path_type_raises(self) -> None:
         with pytest.raises(ValidationError):
             GaussianProcess.load(12345)
 
-    def test_load_unfitted_model_warns(self, tmp_path: Path):
+    def test_load_unfitted_model_warns(self, tmp_path: Path) -> None:
         """Loading an unfitted model should emit a UserWarning."""
         gp = GaussianProcess(RBFKernel(length_scale=1.0))  # unfitted
         filepath = tmp_path / "unfitted.pkl"
@@ -95,7 +96,7 @@ class TestGPLoad:
             loaded = GaussianProcess.load(filepath)
         assert loaded.alpha.size == 0
 
-    def test_load_accepts_string_path(self, tmp_path: Path):
+    def test_load_accepts_string_path(self, tmp_path: Path) -> None:
         gp = _fitted_gp()
         filepath = str(tmp_path / "model.pkl")
         gp.save(filepath)

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite._utils._validation import (
     validate_anisotropic_hyperparameter,
@@ -27,44 +29,44 @@ from gplite._utils._validation import (
 
 
 class TestValidateNumericValue:
-    def test_valid_positive_float(self):
-        result = validate_numeric_value(3.14, "x", allow_nonpositive=True)
+    def test_valid_positive_float(self) -> None:
+        result = validate_numeric_value(math.pi, "x", allow_nonpositive=True)
         assert isinstance(result, np.float64)
-        np.testing.assert_almost_equal(result, 3.14)
+        np.testing.assert_almost_equal(result, math.pi)
 
-    def test_valid_int_coerced(self):
+    def test_valid_int_coerced(self) -> None:
         result = validate_numeric_value(5, "x", allow_nonpositive=True)
         assert result == np.float64(5)
 
-    def test_valid_string_float(self):
+    def test_valid_string_float(self) -> None:
         result = validate_numeric_value("2.5", "x", allow_nonpositive=True)
         assert result == np.float64(2.5)
 
-    def test_nan_raises(self):
+    def test_nan_raises(self) -> None:
         with pytest.raises(ValidationError, match="nan"):
             validate_numeric_value(float("nan"), "x", allow_nonpositive=True)
 
-    def test_inf_raises(self):
+    def test_inf_raises(self) -> None:
         with pytest.raises(ValidationError, match="inf"):
             validate_numeric_value(float("inf"), "x", allow_nonpositive=True)
 
-    def test_non_numeric_raises(self):
+    def test_non_numeric_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_numeric_value("hello", "x", allow_nonpositive=True)
 
-    def test_nonpositive_zero_raises_when_disallowed(self):
+    def test_nonpositive_zero_raises_when_disallowed(self) -> None:
         with pytest.raises(ValidationError, match="positive"):
             validate_numeric_value(0.0, "x", allow_nonpositive=False)
 
-    def test_negative_raises_when_disallowed(self):
+    def test_negative_raises_when_disallowed(self) -> None:
         with pytest.raises(ValidationError, match="positive"):
             validate_numeric_value(-1.0, "x", allow_nonpositive=False)
 
-    def test_negative_allowed(self):
+    def test_negative_allowed(self) -> None:
         result = validate_numeric_value(-5.0, "x", allow_nonpositive=True)
         assert result == np.float64(-5.0)
 
-    def test_zero_allowed(self):
+    def test_zero_allowed(self) -> None:
         result = validate_numeric_value(0.0, "x", allow_nonpositive=True)
         assert result == np.float64(0.0)
 
@@ -75,41 +77,45 @@ class TestValidateNumericValue:
 
 
 class TestValidateNumericArray:
-    def test_valid_list(self):
-        result = validate_numeric_array([1.0, 2.0, 3.0], "arr", allow_nonpositive=True)
+    def test_valid_list(self) -> None:
+        result = validate_numeric_array(
+            [1.0, 2.0, 3.0], "arr", allow_nonpositive=True
+        )
         assert result.dtype == np.float64
         assert result.shape == (3,)
 
-    def test_valid_2d_array(self):
+    def test_valid_2d_array(self) -> None:
         arr = np.ones((4, 3))
         result = validate_numeric_array(arr, "arr", allow_nonpositive=True)
         assert result.shape == (4, 3)
 
-    def test_empty_raises(self):
+    def test_empty_raises(self) -> None:
         with pytest.raises(ValidationError, match="empty"):
             validate_numeric_array([], "arr", allow_nonpositive=True)
 
-    def test_nan_raises(self):
+    def test_nan_raises(self) -> None:
         with pytest.raises(ValidationError, match="nan"):
             validate_numeric_array([1.0, np.nan], "arr", allow_nonpositive=True)
 
-    def test_inf_raises(self):
+    def test_inf_raises(self) -> None:
         with pytest.raises(ValidationError, match="inf"):
             validate_numeric_array([1.0, np.inf], "arr", allow_nonpositive=True)
 
-    def test_nonpositive_raises_when_disallowed(self):
+    def test_nonpositive_raises_when_disallowed(self) -> None:
         with pytest.raises(ValidationError, match="positive"):
             validate_numeric_array([1.0, -1.0], "arr", allow_nonpositive=False)
 
-    def test_zero_raises_when_disallowed(self):
+    def test_zero_raises_when_disallowed(self) -> None:
         with pytest.raises(ValidationError, match="positive"):
             validate_numeric_array([1.0, 0.0], "arr", allow_nonpositive=False)
 
-    def test_negatives_allowed(self):
-        result = validate_numeric_array([-1.0, -2.0], "arr", allow_nonpositive=True)
+    def test_negatives_allowed(self) -> None:
+        result = validate_numeric_array(
+            [-1.0, -2.0], "arr", allow_nonpositive=True
+        )
         np.testing.assert_array_equal(result, np.array([-1.0, -2.0]))
 
-    def test_non_numeric_raises(self):
+    def test_non_numeric_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_numeric_array(["a", "b"], "arr", allow_nonpositive=True)
 
@@ -120,16 +126,16 @@ class TestValidateNumericArray:
 
 
 class TestValidateIsotropicHyperparameter:
-    def test_scalar_returns_1d_array(self):
+    def test_scalar_returns_1d_array(self) -> None:
         result = validate_isotropic_hyperparameter(2.0, "ls")
         assert result.shape == (1,)
         assert result[0] == np.float64(2.0)
 
-    def test_zero_raises(self):
+    def test_zero_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_isotropic_hyperparameter(0.0, "ls")
 
-    def test_negative_raises(self):
+    def test_negative_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_isotropic_hyperparameter(-1.0, "ls")
 
@@ -140,16 +146,16 @@ class TestValidateIsotropicHyperparameter:
 
 
 class TestValidateAnisotropicHyperparameter:
-    def test_list_returns_1d_array(self):
+    def test_list_returns_1d_array(self) -> None:
         result = validate_anisotropic_hyperparameter([1.0, 2.0, 3.0], "ls")
         assert result.ndim == 1
         assert result.shape == (3,)
 
-    def test_nonpositive_raises(self):
+    def test_nonpositive_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_anisotropic_hyperparameter([1.0, 0.0], "ls")
 
-    def test_2d_input_flattened(self):
+    def test_2d_input_flattened(self) -> None:
         result = validate_anisotropic_hyperparameter([[1.0], [2.0]], "ls")
         assert result.ndim == 1
         assert result.shape == (2,)
@@ -161,21 +167,21 @@ class TestValidateAnisotropicHyperparameter:
 
 
 class TestValidateInputArrays:
-    def test_compatible_shapes(self):
+    def test_compatible_shapes(self) -> None:
         x1 = np.ones((5, 3))
         x2 = np.ones((7, 3))
         out1, out2 = validate_input_arrays(x1, "x1", x2, "x2")
         assert out1.shape == (5, 3)
         assert out2.shape == (7, 3)
 
-    def test_1d_inputs_reshaped_to_2d(self):
+    def test_1d_inputs_reshaped_to_2d(self) -> None:
         x1 = np.ones(5)
         x2 = np.ones(7)
         out1, out2 = validate_input_arrays(x1, "x1", x2, "x2")
         assert out1.ndim == 2
         assert out2.ndim == 2
 
-    def test_feature_mismatch_raises(self):
+    def test_feature_mismatch_raises(self) -> None:
         x1 = np.ones((5, 3))
         x2 = np.ones((7, 2))
         with pytest.raises(ValidationError, match="features"):
@@ -188,13 +194,13 @@ class TestValidateInputArrays:
 
 
 class TestValidateAnisotropicHyperparameterShape:
-    def test_matching_shapes_ok(self):
+    def test_matching_shapes_ok(self) -> None:
         x = np.ones((10, 3))
         param = np.array([1.0, 2.0, 3.0])
         # should not raise
         validate_anisotropic_hyperparameter_shape(x, param)
 
-    def test_mismatched_raises(self):
+    def test_mismatched_raises(self) -> None:
         x = np.ones((10, 3))
         param = np.array([1.0, 2.0])  # wrong number of dims
         with pytest.raises(ValidationError):
@@ -207,13 +213,13 @@ class TestValidateAnisotropicHyperparameterShape:
 
 
 class TestValidateMultipleAnisotropicHyperparameterSize:
-    def test_matching_sizes_ok(self):
+    def test_matching_sizes_ok(self) -> None:
         params = [np.array([1.0, 2.0]), np.array([3.0, 4.0])]
         names = ["ls", "period"]
         # should not raise
         validate_multiple_anisotropic_hyperparameter_size(params, names)
 
-    def test_mismatched_sizes_raise(self):
+    def test_mismatched_sizes_raise(self) -> None:
         params = [np.array([1.0, 2.0]), np.array([3.0, 4.0, 5.0])]
         names = ["ls", "period"]
         with pytest.raises(ValidationError, match="Mismatch"):
@@ -226,19 +232,19 @@ class TestValidateMultipleAnisotropicHyperparameterSize:
 
 
 class TestValidateSetParams:
-    def test_isotropic_correct_length_ok(self):
+    def test_isotropic_correct_length_ok(self) -> None:
         result = validate_set_params(
             np.array([2.0]), "ls", isotropic=True, expected_length=1
         )
         assert result[0] == np.float64(2.0)
 
-    def test_isotropic_wrong_length_raises(self):
+    def test_isotropic_wrong_length_raises(self) -> None:
         with pytest.raises(ValidationError, match="Wrong number"):
             validate_set_params(
                 np.array([1.0, 2.0]), "ls", isotropic=True, expected_length=1
             )
 
-    def test_anisotropic_wrong_length_warns(self):
+    def test_anisotropic_wrong_length_warns(self) -> None:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             validate_set_params(
@@ -250,7 +256,7 @@ class TestValidateSetParams:
         assert len(w) == 1
         assert "different length" in str(w[0].message).lower()
 
-    def test_nonpositive_raises(self):
+    def test_nonpositive_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_set_params(
                 np.array([-1.0]), "ls", isotropic=True, expected_length=1
@@ -263,7 +269,7 @@ class TestValidateSetParams:
 
 
 class TestValidateBoundsDict:
-    def test_valid_simple_bounds(self):
+    def test_valid_simple_bounds(self) -> None:
         result = validate_bounds_dict(
             {"length_scale": [1e-3, 1e2]},
             expected_params=["length_scale"],
@@ -272,25 +278,27 @@ class TestValidateBoundsDict:
         assert "length_scale" in result
         assert result["length_scale"][0] == (np.float64(1e-3), np.float64(1e2))
 
-    def test_not_dict_raises(self):
+    def test_not_dict_raises(self) -> None:
         with pytest.raises(ValidationError, match="dictionary"):
             validate_bounds_dict("bad", ["length_scale"], "RBFKernel")
 
-    def test_unknown_param_raises(self):
+    def test_unknown_param_raises(self) -> None:
         with pytest.raises(ValidationError):
-            validate_bounds_dict({"foo": [1, 10]}, ["length_scale"], "RBFKernel")
+            validate_bounds_dict(
+                {"foo": [1, 10]}, ["length_scale"], "RBFKernel"
+            )
 
-    def test_lower_greater_than_upper_raises(self):
+    def test_lower_greater_than_upper_raises(self) -> None:
         with pytest.raises(ValidationError, match="[Ll]ower"):
             validate_bounds_dict(
                 {"length_scale": [10, 1]}, ["length_scale"], "RBFKernel"
             )
 
-    def test_non_string_key_raises(self):
+    def test_non_string_key_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_bounds_dict({1: [1, 10]}, ["length_scale"], "RBFKernel")
 
-    def test_case_and_space_normalised(self):
+    def test_case_and_space_normalised(self) -> None:
         """'Length Scale' should be accepted and normalised to 'length_scale'."""
         result = validate_bounds_dict(
             {"Length Scale": [1e-3, 1e2]},
@@ -306,27 +314,27 @@ class TestValidateBoundsDict:
 
 
 class TestValidateInputAndTargetData:
-    def test_matching_shapes_ok(self):
+    def test_matching_shapes_ok(self) -> None:
         x = np.ones((10, 2))
         y = np.ones(10)
         out_x, out_y = validate_input_and_target_data(x, y)
         assert out_x.shape == (10, 2)
         assert out_y.shape == (10,)
 
-    def test_1d_x_reshaped(self):
+    def test_1d_x_reshaped(self) -> None:
         x = np.linspace(0, 1, 10)
         y = np.ones(10)
         out_x, _out_y = validate_input_and_target_data(x, y)
         assert out_x.ndim == 2
         assert out_x.shape == (10, 1)
 
-    def test_sample_mismatch_raises(self):
+    def test_sample_mismatch_raises(self) -> None:
         x = np.ones((10, 2))
         y = np.ones(8)
         with pytest.raises(ValidationError, match="samples"):
             validate_input_and_target_data(x, y)
 
-    def test_nan_in_x_raises(self):
+    def test_nan_in_x_raises(self) -> None:
         x = np.array([[1.0], [np.nan]])
         y = np.array([1.0, 2.0])
         with pytest.raises(ValidationError):
@@ -339,22 +347,22 @@ class TestValidateInputAndTargetData:
 
 
 class TestValidateVariableNames:
-    def test_single_string_ok(self):
+    def test_single_string_ok(self) -> None:
         result = validate_variable_names("x", 1)
         assert result == ["x"]
 
-    def test_list_ok(self):
+    def test_list_ok(self) -> None:
         result = validate_variable_names(["x", "y"], 2)
         assert result == ["x", "y"]
 
-    def test_wrong_count_raises(self):
+    def test_wrong_count_raises(self) -> None:
         with pytest.raises(ValidationError, match="Expected"):
             validate_variable_names(["x"], 2)
 
-    def test_non_string_element_raises(self):
+    def test_non_string_element_raises(self) -> None:
         with pytest.raises(ValidationError, match="strings"):
             validate_variable_names(["x", 9], 2)
 
-    def test_not_str_or_list_raises(self):
+    def test_not_str_or_list_raises(self) -> None:
         with pytest.raises(ValidationError):
             validate_variable_names(123, 1)

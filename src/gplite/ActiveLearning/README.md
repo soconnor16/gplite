@@ -64,8 +64,8 @@ required function signatures can be found below:
 
 ```python
 def custom_selection_function(
-    learner: "ActiveLearner", # the function must accept an active learning instance
-    n_points: int # the function must accept a variable to pass the batch size of selection points
+    learner: "ActiveLearner",  # the function must accept an active learning instance
+    n_points: int,  # the function must accept a variable to pass the batch size of selection points
 ) -> np.ndarray:
     # 1. get the data points that haven't been used yet
     pool_x = learner.x_full[learner.remaining_indices]
@@ -101,19 +101,19 @@ kernel = RBFKernel(length_scale=1.5)
 
 # 1. Initialize the Learner
 learner = ActiveLearner(
-    kernel=kernel, 
-    x_full=X_full, # your full input dataset
-    y_full=y_full  # your full output dataset
+    kernel=kernel,
+    x_full=X_full,  # your full input dataset
+    y_full=y_full,  # your full output dataset
 )
 
 # 2. Execute the Learning Loop
-# the loop will automatically track RMSE, optimize hyperparameters, 
+# the loop will automatically track RMSE, optimize hyperparameters,
 # and stop when it hits 0.05 RMSE or runs out of points.
 learner.learn(
     learning_strategy="uncertainty",
     rmse_threshold=0.05,
     optimize_interval=5,  # re-optimize hyperparameters every 5 iterations
-    batch_size=1          # select 1 point per iteration
+    batch_size=1,  # select 1 point per iteration
 )
 
 # 3. Access the optimized model for prediction
@@ -141,7 +141,7 @@ function.
 * **`x_full`** (*NumPy Array*): The complete matrix of candidate input features.
 * **`y_full`** (*NumPy Array*): The complete vector of candidate target values.
 * **`standardize_inputs`** (*Boolean*): Whether to standardize input values to
-a mean of zero and standard variance.
+a mean of zero and unit variance.
 
 ### 2. Core Methods
 

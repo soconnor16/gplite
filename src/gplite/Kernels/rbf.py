@@ -198,7 +198,11 @@ class RBFKernel(Kernel):
         grad_length_scale = np.zeros((num_rows, num_columns, num_params))
 
         for dim in range(num_features):
-            l_d = self.length_scale[0] if self.isotropic else self.length_scale[dim]
+            l_d = (
+                self.length_scale[0]
+                if self.isotropic
+                else self.length_scale[dim]
+            )
 
             # difference array between x1 and x2 for this dimension
             diff_d = x1[:, dim : dim + 1] - x2[:, dim : dim + 1].T
@@ -339,9 +343,12 @@ class RBFKernel(Kernel):
 
             difference_parts.append(diff_str)
 
-        full_dist_str = " + ".join(difference_parts)
+        full_dist_str = "+".join(difference_parts)
 
-        return f"{alpha:.15e}*exp({full_dist_str})"
+        exp_str = f"exp({full_dist_str})"
+        if alpha == 1.0:
+            return exp_str
+        return f"{alpha:.15e}*{exp_str}"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
         """Computes the diagonal of the kernel matrix K(x, x).

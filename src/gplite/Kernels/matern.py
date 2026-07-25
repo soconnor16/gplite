@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from gplite._utils._computation import compute_square_euclidean_distance
-from gplite._utils._constants import VALID_NU
+from gplite._utils._constants import EPSILON, VALID_NU
 from gplite._utils._data import resolve_bounds_shape
 from gplite._utils._errors import ValidationError
 from gplite._utils._validation import (
@@ -151,6 +151,11 @@ class MaternKernel(Kernel):
         return ("length_scale",)
 
     @property
+    def nu(self) -> float:
+        """The smoothness parameter of the Matérn kernel (1.5 or 2.5)."""
+        return self._nu
+
+    @property
     def bounds(self) -> dict[str, list[tuple[f64, f64]]]:
         """Defines kernel bounds.
 
@@ -198,7 +203,7 @@ class MaternKernel(Kernel):
             z = np.sqrt(3.0) * r
             return (1.0 + z) * np.exp(-z)
 
-        # nu = 2.5
+        # case for nu = 2.5
         z = np.sqrt(5.0) * r
         return (1.0 + z + z**2 / 3.0) * np.exp(-z)
 
@@ -231,7 +236,10 @@ class MaternKernel(Kernel):
 
             if self.isotropic:
                 grad = (
-                    3.0 * np.sum(sq_diff, axis=2, keepdims=True) / l_cubed[0] * exp_term
+                    3.0
+                    * np.sum(sq_diff, axis=2, keepdims=True)
+                    / l_cubed[0]
+                    * exp_term
                 )
             else:
                 grad = 3.0 * sq_diff / l_cubed * exp_term
@@ -290,7 +298,10 @@ class MaternKernel(Kernel):
             exp_3d = exp_neg_z[:, :, np.newaxis]
             if self.isotropic:
                 grad = (
-                    3.0 * np.sum(sq_diff, axis=2, keepdims=True) / l_cubed[0] * exp_3d
+                    3.0
+                    * np.sum(sq_diff, axis=2, keepdims=True)
+                    / l_cubed[0]
+                    * exp_3d
                 )
             else:
                 grad = 3.0 * sq_diff / l_cubed * exp_3d
@@ -375,33 +386,42 @@ class MaternKernel(Kernel):
             A string representation of the mathematical definition of the
             kernel function at the given training point.
         """
-        ls_squared = self.length_scale**2
+        inv_ls_squared = 1.0 / (self.length_scale**2)
 
         dist_parts = []
         for i, var in enumerate(variable_names):
-            ls_val = ls_squared[0] if self.isotropic else ls_squared[i]
-            dist_parts.append(
-                f"( {var} - {training_point[i]:.15e} )^2 / {ls_val:.15e}",
-            )
+            inv_ls = inv_ls_squared[0] if self.isotropic else inv_ls_squared[i]
+            tp = float(training_point[i])
 
-        dist_sum = " + ".join(dist_parts)
-        r_str = f"sqrt( {dist_sum} )"
+            if abs(tp) < EPSILON:
+                diff_str = f"{inv_ls:.15e}*{var}^2"
+            elif tp < 0.0:
+                diff_str = f"{inv_ls:.15e}*({var}+{abs(tp):.15e})^2"
+            else:
+                diff_str = f"{inv_ls:.15e}*({var}-{tp:.15e})^2"
+
+            dist_parts.append(diff_str)
+
+        dist_sum = "+".join(dist_parts)
+        r_str = f"sqrt({dist_sum})"
 
         if self._nu == 1.5:
             c = np.sqrt(3.0)
-            return (
-                f"( {alpha:.15e} * ( 1 + {c:.15e} * {r_str} ) "
-                f"* exp( -{c:.15e} * {r_str} ) )"
-            )
+            base_str = f"(1+{c:.15e}*{r_str})*exp(-{c:.15e}*{r_str})"
+            if alpha == 1.0:
+                return base_str
+            return f"{alpha:.15e}*{base_str}"
 
-        # nu = 2.5
+        # case for nu = 2.5
         c = np.sqrt(5.0)
         c_sq = 5.0 / 3.0
-        return (
-            f"( {alpha:.15e} * ( 1 + {c:.15e} * {r_str} "
-            f"+ {c_sq:.15e} * ( {dist_sum} ) ) "
-            f"* exp( -{c:.15e} * {r_str} ) )"
+        base_str = (
+            f"(1+{c:.15e}*{r_str}+{c_sq:.15e}*"
+            f"({dist_sum}))*exp(-{c:.15e}*{r_str})"
         )
+        if alpha == 1.0:
+            return base_str
+        return f"{alpha:.15e}*{base_str}"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
         """Computes the diagonal of the kernel matrix K(x, x).

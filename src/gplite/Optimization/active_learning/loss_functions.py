@@ -11,7 +11,7 @@ Built-in loss functions include:
         Penalizes large errors more heavily due to squaring.
 
     MAE (Mean Absolute Error):
-        MAE = 1/n *  |yᵢ - ŷᵢ|
+        MAE = 1/n * Σᵢ |yᵢ - ŷᵢ|
 
         More robust to outliers than RMSE.
 

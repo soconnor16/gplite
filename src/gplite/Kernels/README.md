@@ -67,22 +67,20 @@ GaussianProcess.
 from gplite.Kernels import RBFKernel, PeriodicKernel
 from gplite.GaussianProcess import GaussianProcess
 
-# set wide bounds for the sigma parameter of the rbf kernel, which we may be
-# uncertain about
-rbf_bounds = {
-    "sigma": (10, 100)
-}
+# set wide bounds for the length_scale parameter of the rbf kernel, which we
+# may be uncertain about
+rbf_bounds = {"length_scale": (10, 100)}
 
 # an RBF Kernel to model a smooth trend
-trend = RBFKernel(length_scale=50.0, bounds=bounds)
+trend = RBFKernel(length_scale=50.0, bounds=rbf_bounds)
 
 # set custom, fixed bounds for only the period parameter of the periodic kernel
-periodic_bounds = {
-    "period": (12.0, 12.0)
-}
+periodic_bounds = {"period": (12.0, 12.0)}
 
 # a Periodic Kernel to model a seasonal trend
-seasonality = PeriodicKernel(length_scale=1.5, period=12.0, bounds=bounds)
+seasonality = PeriodicKernel(
+    length_scale=1.5, period=12.0, bounds=periodic_bounds
+)
 
 # add them together so the GP models both behaviors simultaneously
 composite_kernel = trend + seasonality
@@ -140,7 +138,7 @@ Computes the gradients of the kernel matrix with respect to its hyperparameters.
 .compute_with_gradient(x1, x2)
 ```
 
-Am optimized method that computes both the kernel matrix and its gradients in a
+An optimized method that computes both the kernel matrix and its gradients in a
 single pass. Used heavily by the GP optimizer to prevent
 redundant distance calculations.
 

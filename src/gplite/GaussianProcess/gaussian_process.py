@@ -97,7 +97,9 @@ class GaussianProcess:
             ValidationError: If kernel is not a valid Kernel subclass.
         """
         if not isinstance(kernel, Kernel):
-            err_msg = "Error: 'kernel' argument must be a valid kernel subclass."
+            err_msg = (
+                "Error: 'kernel' argument must be a valid kernel subclass."
+            )
             raise ValidationError(err_msg)
 
         self.kernel = kernel
@@ -124,9 +126,8 @@ class GaussianProcess:
         # input standardization stats (arrays to handle multiple features)
         # only used if standardize_inputs is True; otherwise set to identity
         # transformation
-        if self._standardize_inputs:
-            self._x_mean = np.array([])
-            self._x_std = np.array([])
+        self._x_mean = np.array([])
+        self._x_std = np.array([])
 
     def optimize_hyperparameters(
         self,
@@ -227,10 +228,14 @@ class GaussianProcess:
                 False.
 
         Returns:
-            Predicted mean values, and optionally standard deviation and/or
-            covariance matrix. If both return_std and return_cov are True,
-                returns (mean, std, cov). All values are returned as NumPy
-                arrays of 64 bit floating point types.
+            Predictions depend on which flags are set:
+
+            - return_std=False, return_cov=False (default): returns mean
+            - return_std=True,  return_cov=False: returns (mean, std)
+            - return_std=False, return_cov=True:  returns (mean, cov)
+            - return_std=True,  return_cov=True:  returns (mean, std, cov)
+
+            All values are returned as NumPy arrays.
 
         Raises:
             RuntimeError: If the model has not been fitted before prediction.
@@ -239,7 +244,8 @@ class GaussianProcess:
         # model must be fitted before prediction
         if self.alpha.size == 0 or self._lower_chol.size == 0:
             err_msg = (
-                "Error: Model needs to be fitted before it can be used for prediction."
+                "Error: Model needs to be fitted before it can be used for "
+                "prediction."
             )
             raise RuntimeError(err_msg)
 
@@ -267,7 +273,7 @@ class GaussianProcess:
             return y_mean
 
         # compute variance / covariance
-        # v = L^(-1) * k_test_train.T
+        # solve for v: v = L^(-1) * k_test_train.T
         variance = linalg.solve_triangular(
             self._lower_chol,
             k_test_train.T,
@@ -300,6 +306,10 @@ class GaussianProcess:
 
         Args:
             filepath: Path to save the model to.
+
+        Raises:
+            ValidationError: If the filepath argument is not a string or Path
+                object.
         """
         if not isinstance(filepath, (Path, str)):
             err_msg = "Error: 'filepath' must be a str type or Path object"
@@ -322,8 +332,10 @@ class GaussianProcess:
             The loaded GaussianProcess instance.
 
         Raises:
-            TypeError: If the loaded object is not a GaussianProcess instance.
             FileNotFoundError: If the file does not exist.
+            TypeError: If the loaded object is not a GaussianProcess instance.
+            ValidationError: If the filepath argument is not a string or Path
+                object.
         """
         if not isinstance(filepath, (Path, str)):
             err_msg = "Error: 'filepath' must be a str type or Path object"
@@ -384,7 +396,8 @@ class GaussianProcess:
         """
         if self.alpha.size == 0:
             warning_msg = (
-                "Warning: Gaussian Process is not fitted, returning empty string."
+                "Warning: Gaussian Process is not fitted, returning empty "
+                "string."
             )
             warnings.warn(warning_msg, stacklevel=2)
             return ""
@@ -401,7 +414,7 @@ class GaussianProcess:
             standardized_vars = []
             for i, var in enumerate(variable_names):
                 standardized_vars.append(
-                    f"(({var} - {self._x_mean[i]:.15e}) / {self._x_std[i]:.15e})"
+                    f"(({var}-{self._x_mean[i]:.15e})/{self._x_std[i]:.15e})",
                 )
         else:
             standardized_vars = variable_names
@@ -414,11 +427,11 @@ class GaussianProcess:
             k_str = self.kernel._to_str(standardized_vars, alpha_scaled, x_i)
             terms.append(k_str)
 
-        full_expression = " + ".join(terms)
+        full_expression = "+".join(terms)
 
         # target data is always standardized, this unstandardizes it if the
         # unstandardized mean was not already 0
         if np.abs(self._y_mean) > EPSILON:
-            return f"{full_expression} + {self._y_mean:.15e}"
+            return f"{full_expression}+{self._y_mean:.15e}"
 
         return full_expression

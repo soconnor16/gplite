@@ -23,13 +23,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from gplite._utils._data import resolve_bounds_shape
-from gplite._utils._types import (
-    Arrf64,
-    KernelBounds,
-    NumericArray,
-    NumericValue,
-    f64,
-)
 from gplite._utils._validation import (
     validate_bounds_dict,
     validate_isotropic_hyperparameter,
