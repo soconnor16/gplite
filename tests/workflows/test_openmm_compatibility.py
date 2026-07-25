@@ -12,6 +12,7 @@ coordinates. This maps cleanly to 1-D (variable='x') and 2-D
 
 import numpy as np
 import pytest
+
 from gplite.GaussianProcess.gaussian_process import (
     GaussianProcess,
 )
@@ -49,7 +50,9 @@ def _build_context_1d(expression: str, x_val: float) -> openmm.Context:
     return ctx
 
 
-def _build_context_2d(expression: str, x_val: float, y_val: float) -> openmm.Context:
+def _build_context_2d(
+    expression: str, x_val: float, y_val: float
+) -> openmm.Context:
     """Build a single-particle context with the 2-D expression evaluated
     at (x_val, y_val, 0).
     """
@@ -67,7 +70,9 @@ def _build_context_2d(expression: str, x_val: float, y_val: float) -> openmm.Con
 def _energy(ctx: openmm.Context) -> float:
     """Return potential energy in kJ/mol as a plain float."""
     state = ctx.getState(getEnergy=True)
-    return state.getPotentialEnergy().value_in_unit(openmm.unit.kilojoules_per_mole)
+    return state.getPotentialEnergy().value_in_unit(
+        openmm.unit.kilojoules_per_mole
+    )
 
 
 def _fit_gp_1d(kernel, n: int = 12) -> GaussianProcess:
@@ -93,7 +98,7 @@ def _fit_gp_2d(kernel, n: int = 15) -> GaussianProcess:
 
 
 class TestOpenMMRBFKernel:
-    def test_isotropic_1d_parses(self):
+    def test_isotropic_1d_parses(self) -> None:
         gp = _fit_gp_1d(RBFKernel(length_scale=1.0))
         expr = gp.to_str("x")
         # will raise if OpenMM cannot parse the expression
@@ -101,7 +106,7 @@ class TestOpenMMRBFKernel:
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_isotropic_1d_matches_predict(self):
+    def test_isotropic_1d_matches_predict(self) -> None:
         gp = _fit_gp_1d(RBFKernel(length_scale=1.0))
         expr = gp.to_str("x")
         x_eval = 1.2
@@ -112,14 +117,14 @@ class TestOpenMMRBFKernel:
             f"RBF iso 1D: GP={gp_val:.6f}, OpenMM={openmm_val:.6f}"
         )
 
-    def test_anisotropic_2d_parses(self):
+    def test_anisotropic_2d_parses(self) -> None:
         gp = _fit_gp_2d(RBFKernel(length_scale=[1.0, 2.0], isotropic=False))
         expr = gp.to_str(["x", "y"])
         ctx = _build_context_2d(expr, x_val=0.5, y_val=-0.5)
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_anisotropic_2d_matches_predict(self):
+    def test_anisotropic_2d_matches_predict(self) -> None:
         gp = _fit_gp_2d(RBFKernel(length_scale=[1.0, 2.0], isotropic=False))
         expr = gp.to_str(["x", "y"])
         x_eval, y_eval = 0.5, -0.5
@@ -138,7 +143,7 @@ class TestOpenMMRBFKernel:
 
 class TestOpenMMMaternKernel:
     @pytest.mark.parametrize("nu", [1.5, 2.5])
-    def test_isotropic_1d_parses(self, nu):
+    def test_isotropic_1d_parses(self, nu) -> None:
         gp = _fit_gp_1d(MaternKernel(length_scale=1.0, nu=nu))
         expr = gp.to_str("x")
         ctx = _build_context_1d(expr, x_val=1.0)
@@ -146,7 +151,7 @@ class TestOpenMMMaternKernel:
         assert np.isfinite(e)
 
     @pytest.mark.parametrize("nu", [1.5, 2.5])
-    def test_isotropic_1d_matches_predict(self, nu):
+    def test_isotropic_1d_matches_predict(self, nu) -> None:
         gp = _fit_gp_1d(MaternKernel(length_scale=1.0, nu=nu))
         expr = gp.to_str("x")
         x_eval = 1.2
@@ -158,16 +163,20 @@ class TestOpenMMMaternKernel:
         )
 
     @pytest.mark.parametrize("nu", [1.5, 2.5])
-    def test_anisotropic_2d_parses(self, nu):
-        gp = _fit_gp_2d(MaternKernel(length_scale=[1.0, 1.5], nu=nu, isotropic=False))
+    def test_anisotropic_2d_parses(self, nu) -> None:
+        gp = _fit_gp_2d(
+            MaternKernel(length_scale=[1.0, 1.5], nu=nu, isotropic=False)
+        )
         expr = gp.to_str(["x", "y"])
         ctx = _build_context_2d(expr, x_val=0.5, y_val=-0.3)
         e = _energy(ctx)
         assert np.isfinite(e)
 
     @pytest.mark.parametrize("nu", [1.5, 2.5])
-    def test_anisotropic_2d_matches_predict(self, nu):
-        gp = _fit_gp_2d(MaternKernel(length_scale=[1.0, 1.5], nu=nu, isotropic=False))
+    def test_anisotropic_2d_matches_predict(self, nu) -> None:
+        gp = _fit_gp_2d(
+            MaternKernel(length_scale=[1.0, 1.5], nu=nu, isotropic=False)
+        )
         expr = gp.to_str(["x", "y"])
         x_eval, y_eval = 0.5, -0.3
         gp_val = float(gp.predict(np.array([[x_eval, y_eval]]))[0])
@@ -184,14 +193,14 @@ class TestOpenMMMaternKernel:
 
 
 class TestOpenMMPeriodicKernel:
-    def test_isotropic_1d_parses(self):
+    def test_isotropic_1d_parses(self) -> None:
         gp = _fit_gp_1d(PeriodicKernel(length_scale=1.0, period=np.pi))
         expr = gp.to_str("x")
         ctx = _build_context_1d(expr, x_val=1.0)
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_isotropic_1d_matches_predict(self):
+    def test_isotropic_1d_matches_predict(self) -> None:
         gp = _fit_gp_1d(PeriodicKernel(length_scale=1.0, period=np.pi))
         expr = gp.to_str("x")
         x_eval = 1.2
@@ -202,7 +211,7 @@ class TestOpenMMPeriodicKernel:
             f"Periodic iso 1D: GP={gp_val:.6f}, OpenMM={openmm_val:.6f}"
         )
 
-    def test_anisotropic_2d_parses(self):
+    def test_anisotropic_2d_parses(self) -> None:
         gp = _fit_gp_2d(
             PeriodicKernel(
                 length_scale=[1.0, 1.5],
@@ -215,7 +224,7 @@ class TestOpenMMPeriodicKernel:
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_anisotropic_2d_matches_predict(self):
+    def test_anisotropic_2d_matches_predict(self) -> None:
         gp = _fit_gp_2d(
             PeriodicKernel(
                 length_scale=[1.0, 1.5],
@@ -239,14 +248,14 @@ class TestOpenMMPeriodicKernel:
 
 
 class TestOpenMMConstantKernel:
-    def test_1d_parses(self):
+    def test_1d_parses(self) -> None:
         gp = _fit_gp_1d(ConstantKernel(constant=2.0))
         expr = gp.to_str("x")
         ctx = _build_context_1d(expr, x_val=1.0)
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_1d_matches_predict(self):
+    def test_1d_matches_predict(self) -> None:
         gp = _fit_gp_1d(ConstantKernel(constant=2.0))
         expr = gp.to_str("x")
         x_eval = 1.2
@@ -264,7 +273,7 @@ class TestOpenMMConstantKernel:
 
 
 class TestOpenMMCompositeKernels:
-    def test_additive_isotropic_1d_parses(self):
+    def test_additive_isotropic_1d_parses(self) -> None:
         kernel = RBFKernel(length_scale=1.0) + ConstantKernel(constant=1.0)
         gp = _fit_gp_1d(kernel)
         expr = gp.to_str("x")
@@ -272,7 +281,7 @@ class TestOpenMMCompositeKernels:
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_additive_isotropic_1d_matches_predict(self):
+    def test_additive_isotropic_1d_matches_predict(self) -> None:
         kernel = RBFKernel(length_scale=1.0) + ConstantKernel(constant=1.0)
         gp = _fit_gp_1d(kernel)
         expr = gp.to_str("x")
@@ -284,7 +293,7 @@ class TestOpenMMCompositeKernels:
             f"RBF+Constant iso 1D: GP={gp_val:.6f}, OpenMM={openmm_val:.6f}"
         )
 
-    def test_product_isotropic_1d_parses(self):
+    def test_product_isotropic_1d_parses(self) -> None:
         kernel = ConstantKernel(constant=2.0) * RBFKernel(length_scale=1.0)
         gp = _fit_gp_1d(kernel)
         expr = gp.to_str("x")
@@ -292,7 +301,7 @@ class TestOpenMMCompositeKernels:
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_product_isotropic_1d_matches_predict(self):
+    def test_product_isotropic_1d_matches_predict(self) -> None:
         kernel = ConstantKernel(constant=2.0) * RBFKernel(length_scale=1.0)
         gp = _fit_gp_1d(kernel)
         expr = gp.to_str("x")
@@ -304,20 +313,20 @@ class TestOpenMMCompositeKernels:
             f"Constant*RBF iso 1D: GP={gp_val:.6f}, OpenMM={openmm_val:.6f}"
         )
 
-    def test_additive_anisotropic_2d_parses(self):
-        kernel = RBFKernel(length_scale=[1.0, 2.0], isotropic=False) + MaternKernel(
-            length_scale=[0.5, 1.5], nu=2.5, isotropic=False
-        )
+    def test_additive_anisotropic_2d_parses(self) -> None:
+        kernel = RBFKernel(
+            length_scale=[1.0, 2.0], isotropic=False
+        ) + MaternKernel(length_scale=[0.5, 1.5], nu=2.5, isotropic=False)
         gp = _fit_gp_2d(kernel)
         expr = gp.to_str(["x", "y"])
         ctx = _build_context_2d(expr, x_val=0.5, y_val=-0.5)
         e = _energy(ctx)
         assert np.isfinite(e)
 
-    def test_additive_anisotropic_2d_matches_predict(self):
-        kernel = RBFKernel(length_scale=[1.0, 2.0], isotropic=False) + MaternKernel(
-            length_scale=[0.5, 1.5], nu=2.5, isotropic=False
-        )
+    def test_additive_anisotropic_2d_matches_predict(self) -> None:
+        kernel = RBFKernel(
+            length_scale=[1.0, 2.0], isotropic=False
+        ) + MaternKernel(length_scale=[0.5, 1.5], nu=2.5, isotropic=False)
         gp = _fit_gp_2d(kernel)
         expr = gp.to_str(["x", "y"])
         x_eval, y_eval = 0.5, -0.5
@@ -328,14 +337,16 @@ class TestOpenMMCompositeKernels:
             f"RBF+Matern aniso 2D: GP={gp_val:.6f}, OpenMM={openmm_val:.6f}"
         )
 
-    def test_rbf_plus_matern_iso_1d_parses(self):
-        kernel = RBFKernel(length_scale=1.0) + MaternKernel(length_scale=1.0, nu=1.5)
+    def test_rbf_plus_matern_iso_1d_parses(self) -> None:
+        kernel = RBFKernel(length_scale=1.0) + MaternKernel(
+            length_scale=1.0, nu=1.5
+        )
         gp = _fit_gp_1d(kernel)
         expr = gp.to_str("x")
         ctx = _build_context_1d(expr, x_val=1.0)
         assert np.isfinite(_energy(ctx))
 
-    def test_periodic_plus_rbf_iso_1d_parses(self):
+    def test_periodic_plus_rbf_iso_1d_parses(self) -> None:
         kernel = PeriodicKernel(length_scale=1.0, period=np.pi) + RBFKernel(
             length_scale=1.0
         )
@@ -354,7 +365,7 @@ class TestOpenMMNumericalConsistency:
     """Check GP predict vs OpenMM energy at several x values for robustness."""
 
     @pytest.mark.parametrize("x_eval", [0.0, 0.5, 1.0, 1.5, 2.0, np.pi])
-    def test_rbf_iso_multipoint(self, x_eval):
+    def test_rbf_iso_multipoint(self, x_eval) -> None:
         gp = _fit_gp_1d(RBFKernel(length_scale=1.0))
         expr = gp.to_str("x")
         gp_val = float(gp.predict(np.array([[x_eval]]))[0])
@@ -366,7 +377,7 @@ class TestOpenMMNumericalConsistency:
 
     @pytest.mark.parametrize("nu", [1.5, 2.5])
     @pytest.mark.parametrize("x_eval", [0.3, 1.0, 2.5])
-    def test_matern_iso_multipoint(self, nu, x_eval):
+    def test_matern_iso_multipoint(self, nu, x_eval) -> None:
         gp = _fit_gp_1d(MaternKernel(length_scale=1.0, nu=nu))
         expr = gp.to_str("x")
         gp_val = float(gp.predict(np.array([[x_eval]]))[0])

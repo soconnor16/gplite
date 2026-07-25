@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite.Kernels.periodic import PeriodicKernel
 
@@ -43,32 +44,36 @@ def _finite_difference_gradient(kernel, x1, x2, param_index, eps=1e-5):
 
 
 class TestPeriodicKernelInit:
-    def test_isotropic_scalars(self):
+    def test_isotropic_scalars(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         assert k.isotropic is True
         assert k.length_scale.shape == (1,)
         assert k.period.shape == (1,)
         np.testing.assert_allclose(k.period, [2.0])
 
-    def test_anisotropic_arrays(self):
-        k = PeriodicKernel(length_scale=[1.0, 1.5], period=[2.0, 3.0], isotropic=False)
+    def test_anisotropic_arrays(self) -> None:
+        k = PeriodicKernel(
+            length_scale=[1.0, 1.5], period=[2.0, 3.0], isotropic=False
+        )
         assert k.isotropic is False
         assert k.length_scale.shape == (2,)
         assert k.period.shape == (2,)
 
-    def test_mismatched_aniso_sizes_raise(self):
+    def test_mismatched_aniso_sizes_raise(self) -> None:
         with pytest.raises(ValidationError):
-            PeriodicKernel(length_scale=[1.0, 1.5], period=[2.0], isotropic=False)
+            PeriodicKernel(
+                length_scale=[1.0, 1.5], period=[2.0], isotropic=False
+            )
 
-    def test_zero_length_scale_raises(self):
+    def test_zero_length_scale_raises(self) -> None:
         with pytest.raises(ValidationError):
             PeriodicKernel(length_scale=0.0, period=1.0)
 
-    def test_zero_period_raises(self):
+    def test_zero_period_raises(self) -> None:
         with pytest.raises(ValidationError):
             PeriodicKernel(length_scale=1.0, period=0.0)
 
-    def test_custom_bounds(self):
+    def test_custom_bounds(self) -> None:
         k = PeriodicKernel(
             length_scale=1.0,
             period=2.0,
@@ -83,7 +88,7 @@ class TestPeriodicKernelInit:
 
 
 class TestPeriodicHyperparameters:
-    def test_hyperparameters_tuple(self):
+    def test_hyperparameters_tuple(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         assert k.hyperparameters == ("length_scale", "period")
 
@@ -94,14 +99,14 @@ class TestPeriodicHyperparameters:
 
 
 class TestPeriodicGetSetParams:
-    def test_isotropic_get_concatenated(self):
+    def test_isotropic_get_concatenated(self) -> None:
         """get_params() concatenates [length_scale, period]."""
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         params = k.get_params()
         assert params.shape == (2,)
         np.testing.assert_allclose(params, [1.0, 2.0])
 
-    def test_isotropic_set_roundtrip(self):
+    def test_isotropic_set_roundtrip(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         k.set_params(np.array([3.0, 4.0]))
         params = k.get_params()
@@ -109,19 +114,23 @@ class TestPeriodicGetSetParams:
         np.testing.assert_allclose(k.length_scale, [3.0])
         np.testing.assert_allclose(k.period, [4.0])
 
-    def test_anisotropic_get_concatenated(self):
-        k = PeriodicKernel(length_scale=[1.0, 1.5], period=[2.0, 3.0], isotropic=False)
+    def test_anisotropic_get_concatenated(self) -> None:
+        k = PeriodicKernel(
+            length_scale=[1.0, 1.5], period=[2.0, 3.0], isotropic=False
+        )
         params = k.get_params()
         assert params.shape == (4,)
         np.testing.assert_allclose(params, [1.0, 1.5, 2.0, 3.0])
 
-    def test_anisotropic_set_roundtrip(self):
-        k = PeriodicKernel(length_scale=[1.0, 1.5], period=[2.0, 3.0], isotropic=False)
+    def test_anisotropic_set_roundtrip(self) -> None:
+        k = PeriodicKernel(
+            length_scale=[1.0, 1.5], period=[2.0, 3.0], isotropic=False
+        )
         k.set_params(np.array([2.0, 2.5, 5.0, 6.0]))
         params = k.get_params()
         np.testing.assert_allclose(params, [2.0, 2.5, 5.0, 6.0])
 
-    def test_nonpositive_raises(self):
+    def test_nonpositive_raises(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         with pytest.raises(ValidationError):
             k.set_params(np.array([-1.0, 2.0]))
@@ -133,44 +142,44 @@ class TestPeriodicGetSetParams:
 
 
 class TestPeriodicComputeIsotropic:
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.kernel = PeriodicKernel(length_scale=1.0, period=2.0)
 
-    def test_output_shape_square(self):
+    def test_output_shape_square(self) -> None:
         x = _make_x(8, 2)
         K = self.kernel.compute(x, x)
         assert K.shape == (8, 8)
 
-    def test_output_shape_rect(self):
+    def test_output_shape_rect(self) -> None:
         x1 = _make_x(5, 2)
         x2 = _make_x(7, 2)
         K = self.kernel.compute(x1, x2)
         assert K.shape == (5, 7)
 
-    def test_diagonal_is_one(self):
+    def test_diagonal_is_one(self) -> None:
         """K(x, x) = exp(0) = 1 for all x."""
         x = _make_x(8, 3)
         K = self.kernel._compute(x, x)
         np.testing.assert_allclose(np.diag(K), 1.0, atol=1e-10)
 
-    def test_symmetric(self):
+    def test_symmetric(self) -> None:
         x = _make_x(8, 2)
         K = self.kernel._compute(x, x)
         np.testing.assert_allclose(K, K.T, atol=1e-12)
 
-    def test_psd(self):
+    def test_psd(self) -> None:
         x = _make_x(8, 2)
         K = self.kernel._compute(x, x)
         assert _is_psd(K)
 
-    def test_values_in_zero_one(self):
+    def test_values_in_zero_one(self) -> None:
         x1 = _make_x(5, 2)
         x2 = _make_x(5, 2)
         K = self.kernel._compute(x1, x2)
         assert np.all(K >= 0.0 - 1e-12)
         assert np.all(K <= 1.0 + 1e-12)
 
-    def test_known_value_1d(self):
+    def test_known_value_1d(self) -> None:
         """K(0, p/2) should be exp(-2/l²) for the isotropic periodic kernel,
         because sin²(π * (p/2) / p) = sin²(π/2) = 1.
         """
@@ -183,7 +192,7 @@ class TestPeriodicComputeIsotropic:
         expected = np.exp(-2.0 / l**2)
         np.testing.assert_allclose(K[0, 0], expected, rtol=1e-6)
 
-    def test_periodicity(self):
+    def test_periodicity(self) -> None:
         """K(x, x') should equal K(x, x' + period) for a periodic kernel."""
         k = PeriodicKernel(length_scale=1.0, period=3.0)
         x1 = np.array([[1.0]])
@@ -200,34 +209,34 @@ class TestPeriodicComputeIsotropic:
 
 
 class TestPeriodicComputeAnisotropic:
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.kernel = PeriodicKernel(
             length_scale=[1.0, 1.5],
             period=[2.0, 3.0],
             isotropic=False,
         )
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         x = _make_x(8, 2)
         K = self.kernel.compute(x, x)
         assert K.shape == (8, 8)
 
-    def test_symmetric(self):
+    def test_symmetric(self) -> None:
         x = _make_x(8, 2)
         K = self.kernel._compute(x, x)
         np.testing.assert_allclose(K, K.T, atol=1e-12)
 
-    def test_psd(self):
+    def test_psd(self) -> None:
         x = _make_x(8, 2)
         K = self.kernel._compute(x, x)
         assert _is_psd(K)
 
-    def test_diagonal_is_one(self):
+    def test_diagonal_is_one(self) -> None:
         x = _make_x(6, 2)
         K = self.kernel._compute(x, x)
         np.testing.assert_allclose(np.diag(K), 1.0, atol=1e-10)
 
-    def test_dimension_mismatch_raises(self):
+    def test_dimension_mismatch_raises(self) -> None:
         x = _make_x(5, 3)
         with pytest.raises(ValidationError):
             self.kernel.compute(x, x)
@@ -239,24 +248,24 @@ class TestPeriodicComputeAnisotropic:
 
 
 class TestPeriodicGradientIsotropic:
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.kernel = PeriodicKernel(length_scale=1.0, period=2.0)
 
-    def test_gradient_is_tuple_of_two(self):
+    def test_gradient_is_tuple_of_two(self) -> None:
         """Periodic kernel has two gradient components: length_scale, period."""
         x = _make_x(5, 2)
         grads = self.kernel._gradient(x, x)
         assert isinstance(grads, tuple)
         assert len(grads) == 2
 
-    def test_gradient_shapes_isotropic(self):
+    def test_gradient_shapes_isotropic(self) -> None:
         x = _make_x(5, 2)
         grad_ls, grad_p = self.kernel._gradient(x, x)
         assert grad_ls.shape == (5, 5, 1)
         assert grad_p.shape == (5, 5, 1)
 
     @pytest.mark.slow
-    def test_gradient_ls_matches_fd_isotropic(self):
+    def test_gradient_ls_matches_fd_isotropic(self) -> None:
         k = PeriodicKernel(length_scale=1.5, period=2.0)
         x = _make_x(4, 2, seed=5)
         grad_ls, _ = k._gradient(x, x)
@@ -264,7 +273,7 @@ class TestPeriodicGradientIsotropic:
         np.testing.assert_allclose(grad_ls[:, :, 0], fd, rtol=1e-4, atol=1e-6)
 
     @pytest.mark.slow
-    def test_gradient_period_matches_fd_isotropic(self):
+    def test_gradient_period_matches_fd_isotropic(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         x = _make_x(4, 2, seed=6)
         _, grad_p = k._gradient(x, x)
@@ -278,21 +287,21 @@ class TestPeriodicGradientIsotropic:
 
 
 class TestPeriodicGradientAnisotropic:
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.kernel = PeriodicKernel(
             length_scale=[1.0, 1.5],
             period=[2.0, 3.0],
             isotropic=False,
         )
 
-    def test_gradient_shapes_anisotropic(self):
+    def test_gradient_shapes_anisotropic(self) -> None:
         x = _make_x(5, 2)
         grad_ls, grad_p = self.kernel._gradient(x, x)
         assert grad_ls.shape == (5, 5, 2)
         assert grad_p.shape == (5, 5, 2)
 
     @pytest.mark.slow
-    def test_gradient_ls_matches_fd_anisotropic(self):
+    def test_gradient_ls_matches_fd_anisotropic(self) -> None:
         k = PeriodicKernel(
             length_scale=[1.0, 1.5],
             period=[2.0, 3.0],
@@ -311,7 +320,7 @@ class TestPeriodicGradientAnisotropic:
             )
 
     @pytest.mark.slow
-    def test_gradient_period_matches_fd_anisotropic(self):
+    def test_gradient_period_matches_fd_anisotropic(self) -> None:
         k = PeriodicKernel(
             length_scale=[1.0, 1.5],
             period=[2.0, 3.0],
@@ -336,14 +345,14 @@ class TestPeriodicGradientAnisotropic:
 
 
 class TestPeriodicComputeWithGradient:
-    def test_K_matches_compute_isotropic(self):
+    def test_K_matches_compute_isotropic(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         x = _make_x(5, 2)
         K_direct = k._compute(x, x)
         K_cwg, _ = k._compute_with_gradient(x, x)
         np.testing.assert_allclose(K_cwg, K_direct, atol=1e-12)
 
-    def test_K_matches_compute_anisotropic(self):
+    def test_K_matches_compute_anisotropic(self) -> None:
         k = PeriodicKernel(
             length_scale=[1.0, 1.5],
             period=[2.0, 3.0],
@@ -355,7 +364,7 @@ class TestPeriodicComputeWithGradient:
         np.testing.assert_allclose(K_cwg, K_direct, atol=1e-12)
 
     @pytest.mark.slow
-    def test_grad_matches_gradient_method_isotropic(self):
+    def test_grad_matches_gradient_method_isotropic(self) -> None:
         k = PeriodicKernel(length_scale=1.0, period=2.0)
         x = _make_x(4, 2)
         _, (grad_ls_cwg, grad_p_cwg) = k._compute_with_gradient(x, x)

@@ -1,6 +1,7 @@
 """End-to-end workflow tests for GaussianProcess."""
 
 import numpy as np
+
 from gplite.GaussianProcess.gaussian_process import GaussianProcess
 from gplite.Kernels.constant import ConstantKernel
 from gplite.Kernels.matern import MaternKernel
@@ -17,7 +18,7 @@ class TestGPWorkflowSine:
     def _rmse(self, y_pred: np.ndarray, y_true: np.ndarray) -> float:
         return float(np.sqrt(np.mean((y_pred - y_true) ** 2)))
 
-    def test_rbf_sine_rmse(self):
+    def test_rbf_sine_rmse(self) -> None:
         x = np.linspace(0, 2 * np.pi, 30).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
@@ -25,7 +26,7 @@ class TestGPWorkflowSine:
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.05
 
-    def test_matern_15_sine_rmse(self):
+    def test_matern_15_sine_rmse(self) -> None:
         x = np.linspace(0, 2 * np.pi, 30).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(MaternKernel(length_scale=1.0, nu=1.5))
@@ -33,7 +34,7 @@ class TestGPWorkflowSine:
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.1
 
-    def test_matern_25_sine_rmse(self):
+    def test_matern_25_sine_rmse(self) -> None:
         x = np.linspace(0, 2 * np.pi, 30).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(MaternKernel(length_scale=1.0, nu=2.5))
@@ -41,7 +42,7 @@ class TestGPWorkflowSine:
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.1
 
-    def test_predict_on_held_out_points(self):
+    def test_predict_on_held_out_points(self) -> None:
         """Train on every other point, predict on the rest - RBF should generalize."""
         x_all = np.linspace(0, 2 * np.pi, 40).reshape(-1, 1)
         y_all = np.sin(x_all).ravel()
@@ -60,7 +61,7 @@ class TestGPWorkflowQuadratic:
     def _rmse(self, y_pred, y_true):
         return float(np.sqrt(np.mean((y_pred - y_true) ** 2)))
 
-    def test_rbf_quadratic_1d(self):
+    def test_rbf_quadratic_1d(self) -> None:
         x = np.linspace(-3, 3, 30).reshape(-1, 1)
         y = (x**2).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
@@ -68,7 +69,7 @@ class TestGPWorkflowQuadratic:
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.2
 
-    def test_rbf_quadratic_2d(self):
+    def test_rbf_quadratic_2d(self) -> None:
         rng = np.random.default_rng(0)
         x = rng.uniform(-2, 2, size=(40, 2))
         y = x[:, 0] ** 2 + x[:, 1] ** 2
@@ -89,7 +90,7 @@ class TestGPWorkflowWithOptimization:
     def _rmse(self, y_pred, y_true):
         return float(np.sqrt(np.mean((y_pred - y_true) ** 2)))
 
-    def test_optimized_gp_rmse_sine(self):
+    def test_optimized_gp_rmse_sine(self) -> None:
         x = np.linspace(0, 2 * np.pi, 25).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
@@ -97,7 +98,7 @@ class TestGPWorkflowWithOptimization:
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.05
 
-    def test_optimize_hyperparameters_explicitly(self):
+    def test_optimize_hyperparameters_explicitly(self) -> None:
         x = np.linspace(0, 2 * np.pi, 20).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
@@ -115,7 +116,7 @@ class TestGPWorkflowWithOptimization:
 
 
 class TestGPWorkflowSaveLoad:
-    def test_save_load_predictions_consistent(self, tmp_path):
+    def test_save_load_predictions_consistent(self, tmp_path) -> None:
         x = np.linspace(0, 2 * np.pi, 20).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
@@ -141,7 +142,7 @@ class TestGPWorkflowCompositeKernel:
     def _rmse(self, y_pred, y_true):
         return float(np.sqrt(np.mean((y_pred - y_true) ** 2)))
 
-    def test_additive_kernel_sine_rmse(self):
+    def test_additive_kernel_sine_rmse(self) -> None:
         """RBF + Constant should still fit a sine wave."""
         x = np.linspace(0, 2 * np.pi, 25).reshape(-1, 1)
         y = np.sin(x).ravel()
@@ -151,7 +152,7 @@ class TestGPWorkflowCompositeKernel:
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.1
 
-    def test_product_kernel_runs(self):
+    def test_product_kernel_runs(self) -> None:
         """Constant * RBF (scaling kernel) should fit and predict."""
         x = np.linspace(-2, 2, 20).reshape(-1, 1)
         y = (x**2).ravel()
@@ -162,7 +163,7 @@ class TestGPWorkflowCompositeKernel:
         assert y_pred.shape == (20,)
         assert np.all(np.isfinite(y_pred))
 
-    def test_anisotropic_2d_workflow(self):
+    def test_anisotropic_2d_workflow(self) -> None:
         rng = np.random.default_rng(0)
         x = rng.uniform(-2, 2, size=(30, 2))
         y = np.sin(x[:, 0]) + x[:, 1] ** 2
@@ -180,7 +181,7 @@ class TestGPWorkflowCompositeKernel:
 
 
 class TestGPUncertaintyCalibration:
-    def test_uncertainty_higher_far_from_training(self):
+    def test_uncertainty_higher_far_from_training(self) -> None:
         """GP should be more uncertain far outside the training range."""
         x_train = np.linspace(0, 1, 20).reshape(-1, 1)
         y_train = np.sin(x_train).ravel()

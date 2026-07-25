@@ -2,6 +2,26 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.1.7] - 2026-07-25
+
+### Changed
+
+- **OpenMM String Optimizations** Improved `GaussianProcess.to_str()` outputs
+by reducing redundant `1.0*` coefficients, using optimized multiplications
+instead of divisions in Matern kernels, leveraging `x^2` for `0.0` training
+points, and removing unnecessary whitespaces.
+
+### Fixed
+
+- **Kernel Add/Mul Recursion** Removed a redundant `isinstance` recursion guard
+in `Kernel.__add__` and `__mul__`.
+- **Unbound Variables** Guarded against an unbound `iteration` variable in the
+active learning loop exit block.
+- **GP Initialization** Initialized `_x_mean` and `_x_std` unconditionally in
+`GaussianProcess.__init__` rather than dynamically during `fit`.
+- **Validation Stacklevels** Updated `validate_set_params` warning stacklevels
+so warnings point to the user's call site instead of internal utilities.
+
 ## [3.1.6] - 2026-07-23
 
 ### Added

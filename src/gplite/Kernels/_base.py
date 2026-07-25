@@ -298,8 +298,8 @@ class Kernel(ABC):
         """Creates a string representation of a kernel at a single data point.
 
         This is a utility function for the creation of larger string
-        representations of a the full kernel function. The public api for this
-        full representation can be found at the 'GaussianProcess.learn()'
+        representations of the full kernel function. The public api for this
+        full representation can be found at the 'GaussianProcess.to_str()'
         method.
 
         Args:
@@ -403,9 +403,6 @@ class Kernel(ABC):
         # import locally to avoid circular import crashes
         from gplite.Kernels._composite import AdditiveKernel
 
-        if isinstance(self, AdditiveKernel):
-            return self.__add__(other)
-
         return AdditiveKernel(self, other)
 
     def __mul__(self, other: Kernel) -> Kernel:
@@ -421,8 +418,5 @@ class Kernel(ABC):
         """
         # import locally to avoid circular import crashes
         from gplite.Kernels._composite import ProductKernel
-
-        if isinstance(self, ProductKernel):
-            return self.__mul__(other)
 
         return ProductKernel(self, other)

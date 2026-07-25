@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from gplite._utils._computation import (
     compute_lower_cholesky_decomposition,
     compute_rmse_across_dataset,
@@ -17,19 +18,19 @@ from gplite.Kernels.rbf import RBFKernel
 
 
 class TestComputeSquareEuclideanDistance:
-    def test_same_object_returns_symmetric(self):
+    def test_same_object_returns_symmetric(self) -> None:
         """When x1 is x2, output must be symmetric (triangular optimisation path)."""
         x = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
         D = compute_square_euclidean_distance(x, x)
         assert D.shape == (3, 3)
         np.testing.assert_allclose(D, D.T, atol=1e-12)
 
-    def test_same_object_diagonal_is_zero(self):
+    def test_same_object_diagonal_is_zero(self) -> None:
         x = np.array([[1.0, 2.0], [3.0, 4.0]])
         D = compute_square_euclidean_distance(x, x)
         np.testing.assert_allclose(np.diag(D), 0.0, atol=1e-12)
 
-    def test_different_objects(self):
+    def test_different_objects(self) -> None:
         x1 = np.array([[0.0], [1.0]])
         x2 = np.array([[2.0], [3.0]])
         D = compute_square_euclidean_distance(x1, x2)
@@ -37,18 +38,18 @@ class TestComputeSquareEuclideanDistance:
         expected = np.array([[4.0, 9.0], [1.0, 4.0]])
         np.testing.assert_allclose(D, expected, atol=1e-12)
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         x1 = np.ones((5, 3))
         x2 = np.ones((7, 3))
         D = compute_square_euclidean_distance(x1, x2)
         assert D.shape == (5, 7)
 
-    def test_output_dtype(self):
+    def test_output_dtype(self) -> None:
         x = np.ones((3, 2))
         D = compute_square_euclidean_distance(x, x)
         assert D.dtype == np.float64
 
-    def test_known_1d_values(self):
+    def test_known_1d_values(self) -> None:
         """Single feature: distance between 0 and 3 should be 9."""
         x1 = np.array([[0.0]])
         x2 = np.array([[3.0]])
@@ -68,9 +69,11 @@ class TestComputeLowerCholeskyDecomposition:
         A = rng.standard_normal((n, n))
         return A @ A.T + np.eye(n) * 0.5
 
-    def test_basic_decomposition(self):
+    def test_basic_decomposition(self) -> None:
         K = self._make_psd_matrix()
-        L, noise = compute_lower_cholesky_decomposition(K, noise=1e-6, max_attempts=10)
+        L, noise = compute_lower_cholesky_decomposition(
+            K, noise=1e-6, max_attempts=10
+        )
         # L should be lower triangular
         np.testing.assert_allclose(np.triu(L, k=1), 0.0, atol=1e-10)
         # Reconstruct: L @ L.T should equal K + noise * I
@@ -78,25 +81,31 @@ class TestComputeLowerCholeskyDecomposition:
         K_reg = K + noise * np.eye(n)
         np.testing.assert_allclose(L @ L.T, K_reg, atol=1e-8)
 
-    def test_returns_float_noise(self):
+    def test_returns_float_noise(self) -> None:
         K = self._make_psd_matrix()
-        _L, noise = compute_lower_cholesky_decomposition(K, noise=1e-6, max_attempts=10)
+        _L, noise = compute_lower_cholesky_decomposition(
+            K, noise=1e-6, max_attempts=10
+        )
         assert isinstance(noise, float)
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         n = 6
         K = self._make_psd_matrix(n)
-        L, _ = compute_lower_cholesky_decomposition(K, noise=1e-6, max_attempts=10)
+        L, _ = compute_lower_cholesky_decomposition(
+            K, noise=1e-6, max_attempts=10
+        )
         assert L.shape == (n, n)
 
-    def test_near_singular_matrix_handled(self):
+    def test_near_singular_matrix_handled(self) -> None:
         """A matrix that is almost singular should not crash with retry logic."""
         n = 4
         # rank-1 matrix - extremely ill-conditioned
         v = np.ones((n, 1))
         K = v @ v.T  # rank 1, PSD but not PD
         # should succeed after jitter is added
-        L, noise = compute_lower_cholesky_decomposition(K, noise=1e-6, max_attempts=10)
+        L, noise = compute_lower_cholesky_decomposition(
+            K, noise=1e-6, max_attempts=10
+        )
         assert L is not None
         assert noise > 0
 
@@ -115,17 +124,17 @@ class TestComputeRmseAcrossDataset:
         gp.fit(x, y)
         return gp, x, y
 
-    def test_returns_scalar(self):
+    def test_returns_scalar(self) -> None:
         gp, x, y = self._fitted_gp()
         rmse = compute_rmse_across_dataset(gp, x, y)
         assert np.isscalar(rmse) or rmse.ndim == 0
 
-    def test_rmse_nonnegative(self):
+    def test_rmse_nonnegative(self) -> None:
         gp, x, y = self._fitted_gp()
         rmse = compute_rmse_across_dataset(gp, x, y)
         assert rmse >= 0.0
 
-    def test_perfect_predictions_give_zero_rmse(self):
+    def test_perfect_predictions_give_zero_rmse(self) -> None:
         """If the GP predicts perfectly, RMSE should be ~0."""
         x = np.array([[0.0], [1.0], [2.0]])
         y = np.array([0.0, 1.0, 4.0])
@@ -136,7 +145,7 @@ class TestComputeRmseAcrossDataset:
         rmse = compute_rmse_across_dataset(gp, x, y)
         assert rmse < 0.5
 
-    def test_rmse_dtype(self):
+    def test_rmse_dtype(self) -> None:
         gp, x, y = self._fitted_gp()
         rmse = compute_rmse_across_dataset(gp, x, y)
         assert rmse.dtype == np.float64

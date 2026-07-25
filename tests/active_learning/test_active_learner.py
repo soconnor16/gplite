@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite.ActiveLearning.active_learning import ActiveLearner
 from gplite.ActiveLearning.selection_functions import random_selection
@@ -27,41 +28,41 @@ def _sine_dataset(n: int = 50) -> tuple[np.ndarray, np.ndarray]:
 
 
 class TestActiveLearnerInit:
-    def test_valid_init(self):
+    def test_valid_init(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         assert learner.x_full.shape == (30, 1)
         assert learner.y_full.shape == (30,)
 
-    def test_invalid_kernel_raises(self):
+    def test_invalid_kernel_raises(self) -> None:
         x, y = _sine_dataset()
         with pytest.raises(ValidationError, match="kernel"):
             ActiveLearner("not_a_kernel", x, y)
 
-    def test_mismatched_shapes_raise(self):
+    def test_mismatched_shapes_raise(self) -> None:
         x = np.ones((20, 1))
         y = np.ones(15)  # wrong length
         with pytest.raises(ValidationError):
             ActiveLearner(RBFKernel(length_scale=1.0), x, y)
 
-    def test_nan_in_data_raises(self):
+    def test_nan_in_data_raises(self) -> None:
         x = np.array([[1.0], [np.nan]])
         y = np.array([1.0, 2.0])
         with pytest.raises(ValidationError):
             ActiveLearner(RBFKernel(length_scale=1.0), x, y)
 
-    def test_gp_is_initialized(self):
+    def test_gp_is_initialized(self) -> None:
         x, y = _sine_dataset()
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         assert learner.gp is not None
 
-    def test_training_data_initialized(self):
+    def test_training_data_initialized(self) -> None:
         x, y = _sine_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         assert learner.x_train.shape[0] == 3
         assert learner.y_train.shape[0] == 3
 
-    def test_remaining_indices_initialized(self):
+    def test_remaining_indices_initialized(self) -> None:
         x, y = _sine_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         assert len(learner.remaining_indices) == 47
@@ -73,7 +74,7 @@ class TestActiveLearnerInit:
 
 
 class TestInitTrainingData:
-    def test_less_than_3_samples_uses_full_dataset(self):
+    def test_less_than_3_samples_uses_full_dataset(self) -> None:
         x = np.array([[0.0], [1.0]])
         y = np.array([0.0, 1.0])
         with warnings.catch_warnings(record=True) as w:
@@ -83,7 +84,7 @@ class TestInitTrainingData:
         assert "< 3 samples" in str(w[0].message)
         np.testing.assert_array_equal(learner.x_train, x)
 
-    def test_exactly_3_samples_initializes_all(self):
+    def test_exactly_3_samples_initializes_all(self) -> None:
         x = np.array([[0.0], [1.0], [2.0]])
         y = np.array([0.0, 1.0, 4.0])
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
@@ -97,7 +98,7 @@ class TestInitTrainingData:
 
 
 class TestSelectNextPoint:
-    def test_select_returns_indices(self):
+    def test_select_returns_indices(self) -> None:
         x, y = _sine_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.gp.fit(learner.x_train, learner.y_train)
@@ -105,7 +106,7 @@ class TestSelectNextPoint:
         indices = learner.select_next_point(random_selection, n_points=1)
         assert len(indices) == 1
 
-    def test_custom_callable_accepted(self):
+    def test_custom_callable_accepted(self) -> None:
         x, y = _sine_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.gp.fit(learner.x_train, learner.y_train)
@@ -124,19 +125,21 @@ class TestSelectNextPoint:
 
 
 class TestActiveLearnerLearnValidation:
-    def test_invalid_strategy_raises(self):
+    def test_invalid_strategy_raises(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         with pytest.raises(ValidationError, match="not a valid"):
-            learner.learn(learning_strategy="nonexistent_strategy", max_points=5)
+            learner.learn(
+                learning_strategy="nonexistent_strategy", max_points=5
+            )
 
-    def test_non_callable_non_string_strategy_raises(self):
+    def test_non_callable_non_string_strategy_raises(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         with pytest.raises(ValidationError):
             learner.learn(learning_strategy=10, max_points=5)
 
-    def test_invalid_rmse_threshold_raises(self):
+    def test_invalid_rmse_threshold_raises(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         with pytest.raises(ValidationError):
@@ -161,7 +164,7 @@ class TestActiveLearnerLearnStrategies:
             "ei_min",
         ],
     )
-    def test_learn_completes_with_strategy(self, strategy):
+    def test_learn_completes_with_strategy(self, strategy) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -172,7 +175,7 @@ class TestActiveLearnerLearnStrategies:
         )
         assert learner.x_train.shape[0] > 3
 
-    def test_learn_with_custom_callable_strategy(self):
+    def test_learn_with_custom_callable_strategy(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
 
@@ -195,7 +198,7 @@ class TestActiveLearnerLearnStrategies:
 
 
 class TestActiveLearnerStoppingCriteria:
-    def test_stops_when_rmse_threshold_met(self):
+    def test_stops_when_rmse_threshold_met(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -207,7 +210,7 @@ class TestActiveLearnerStoppingCriteria:
         # should have stopped very early with almost no points added
         assert learner.x_train.shape[0] <= 6  # 3 initial + maybe 1-2
 
-    def test_stops_at_max_points(self):
+    def test_stops_at_max_points(self) -> None:
         x, y = _sine_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -218,7 +221,7 @@ class TestActiveLearnerStoppingCriteria:
         )
         assert learner.x_train.shape[0] <= 10
 
-    def test_stops_when_pool_exhausted(self):
+    def test_stops_when_pool_exhausted(self) -> None:
         x, y = _sine_dataset(6)  # tiny dataset
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -237,7 +240,7 @@ class TestActiveLearnerStoppingCriteria:
 
 
 class TestActiveLearnerBatchSize:
-    def test_batch_size_greater_than_one(self):
+    def test_batch_size_greater_than_one(self) -> None:
         x, y = _sine_dataset(30)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -256,7 +259,7 @@ class TestActiveLearnerBatchSize:
 
 
 class TestActiveLearnerLogFile:
-    def test_log_file_created(self, tmp_path: Path):
+    def test_log_file_created(self, tmp_path: Path) -> None:
         x, y = _sine_dataset(20)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         log_path = tmp_path / "log.csv"
@@ -270,7 +273,7 @@ class TestActiveLearnerLogFile:
         )
         assert log_path.exists()
 
-    def test_log_file_has_header(self, tmp_path: Path):
+    def test_log_file_has_header(self, tmp_path: Path) -> None:
         x, y = _sine_dataset(20)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         log_path = tmp_path / "log.csv"

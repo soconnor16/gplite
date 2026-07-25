@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gplite.ActiveLearning.active_learning import ActiveLearner
 from gplite.Kernels.matern import MaternKernel
 from gplite.Kernels.rbf import RBFKernel
@@ -35,7 +36,7 @@ def _rmse(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 class TestActiveLearningWorkflowCorrectness:
     """Verify that the learner actually improves RMSE as points are added."""
 
-    def test_rmse_decreases_over_iterations(self):
+    def test_rmse_decreases_over_iterations(self) -> None:
         """RMSE should generally decrease as more points are added."""
         x, y = _sine_dataset(60)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
@@ -58,12 +59,14 @@ class TestActiveLearningWorkflowCorrectness:
             idx = np.asarray(selected)
             learner.x_train = np.vstack([learner.x_train, x[idx]])
             learner.y_train = np.append(learner.y_train, y[idx])
-            learner.remaining_indices = np.setdiff1d(learner.remaining_indices, idx)
+            learner.remaining_indices = np.setdiff1d(
+                learner.remaining_indices, idx
+            )
 
         # RMSE at the end should be less than at the beginning
         assert rmse_snapshots[-1] < rmse_snapshots[0]
 
-    def test_final_rmse_below_threshold_sine(self):
+    def test_final_rmse_below_threshold_sine(self) -> None:
         """After learning with uncertainty strategy, RMSE should be < 0.15."""
         x, y = _sine_dataset(60)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
@@ -76,7 +79,7 @@ class TestActiveLearningWorkflowCorrectness:
         final_rmse = _rmse(learner.gp.predict(x), y)
         assert final_rmse < 0.15
 
-    def test_final_rmse_below_threshold_quadratic(self):
+    def test_final_rmse_below_threshold_quadratic(self) -> None:
         x, y = _quadratic_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -107,7 +110,7 @@ class TestActiveLearningWorkflowAllStrategies:
             "ei_min",
         ],
     )
-    def test_strategy_reduces_rmse(self, strategy):
+    def test_strategy_reduces_rmse(self, strategy) -> None:
         x, y = _sine_dataset(50)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
 
@@ -136,7 +139,7 @@ class TestActiveLearningWorkflowAllStrategies:
 
 
 class TestActiveLearningWorkflowWithOptimization:
-    def test_learn_with_optimize_interval(self):
+    def test_learn_with_optimize_interval(self) -> None:
         """optimize_interval=5 should run without errors."""
         x, y = _sine_dataset(40)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
@@ -149,7 +152,7 @@ class TestActiveLearningWorkflowWithOptimization:
         assert learner.x_train.shape[0] <= 12
         assert np.all(np.isfinite(learner.gp.predict(x)))
 
-    def test_learn_with_final_optimization(self):
+    def test_learn_with_final_optimization(self) -> None:
         """final_optimization_method='rmse' should run without errors."""
         x, y = _sine_dataset(40)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
@@ -175,10 +178,11 @@ class TestActiveLearningWorkflowKernels:
             RBFKernel(length_scale=1.0),
             MaternKernel(length_scale=1.0, nu=1.5),
             MaternKernel(length_scale=1.0, nu=2.5),
-            RBFKernel(length_scale=1.0) + MaternKernel(length_scale=1.0, nu=2.5),
+            RBFKernel(length_scale=1.0)
+            + MaternKernel(length_scale=1.0, nu=2.5),
         ],
     )
-    def test_active_learning_with_kernel(self, kernel):
+    def test_active_learning_with_kernel(self, kernel) -> None:
         x, y = _sine_dataset(40)
         learner = ActiveLearner(kernel, x, y)
         learner.learn(
@@ -198,7 +202,7 @@ class TestActiveLearningWorkflowKernels:
 
 
 class TestActiveLearningBatchWorkflow:
-    def test_batch_learning_runs(self):
+    def test_batch_learning_runs(self) -> None:
         x, y = _sine_dataset(60)
         learner = ActiveLearner(RBFKernel(length_scale=1.0), x, y)
         learner.learn(
@@ -211,7 +215,7 @@ class TestActiveLearningBatchWorkflow:
         # with batch_size=3, we add 3 at a time, shouldn't exceed max_points
         assert learner.x_train.shape[0] <= 20
 
-    def test_batch_rmse_similar_to_sequential(self):
+    def test_batch_rmse_similar_to_sequential(self) -> None:
         """Batch learning should achieve comparable quality to sequential."""
         x, y = _sine_dataset(60)
 
@@ -246,7 +250,7 @@ class TestActiveLearningBatchWorkflow:
 
 
 class TestActiveLearningVsBaseline:
-    def test_uncertainty_beats_trivial_baseline(self):
+    def test_uncertainty_beats_trivial_baseline(self) -> None:
         """A GP trained on just 3 fixed points (no AL) should be worse
         than one that used active learning to pick the best 12 points.
         """

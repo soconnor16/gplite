@@ -15,15 +15,16 @@ initial sampling are done in natural log-space.
 
 from __future__ import annotations
 
+from operator import itemgetter
 from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.linalg import LinAlgError
 from scipy.optimize import minimize
-from scipy.stats import qmc
 
 from gplite._utils._constants import LOCAL_MAXITER, N_REFINE
 from gplite._utils._errors import ValidationError
+from gplite._utils._optimization import generate_starting_points
 from gplite.Optimization.gaussian_process.loss_functions import (
     negative_log_marginal_likelihood,
 )
@@ -134,43 +135,6 @@ def _get_objective_wrappers(
     return func_wrapper, func_wrapper_no_grad, use_grad
 
 
-def _generate_starting_points(
-    initial_log_theta: Arrf64,
-    log_bounds: list[tuple[float, float]],
-    n_restarts: int,
-) -> list[Arrf64]:
-    """Generates starting points for optimization with Latin Hypercube Sampling.
-
-    Sampling is performed in log-space. Because Gaussian Process hyperparameters
-    (such as length scales and variances) are strictly positive and can span
-    multiple orders of magnitude, uniform sampling in linear space severely
-    under-samples small values. Log-space sampling ensures the optimizer
-    explores all orders of magnitude uniformly.
-
-    Args:
-        initial_log_theta: Current hyperparameter values in natural log-space.
-        log_bounds: Natural log-space bounds for each hyperparameter.
-        n_restarts: Number of random starting points to generate.
-
-    Returns:
-        List of starting points including initial_theta.
-    """
-    starting_points = [initial_log_theta]
-
-    if n_restarts > 0:
-        sampler = qmc.LatinHypercube(d=len(log_bounds))
-        samples = sampler.random(n_restarts)
-
-        for sample in samples:
-            log_theta = []
-            for j, (log_low, log_high) in enumerate(log_bounds):
-                log_sample = log_low + sample[j] * (log_high - log_low)
-                log_theta.append(log_sample)
-            starting_points.append(np.asarray(log_theta, dtype=np.float64))
-
-    return starting_points
-
-
 def optimize_hyperparameters(
     gp: GaussianProcess,
     objective_func: str | GaussianProcessLossFunction = "lml",
@@ -215,7 +179,7 @@ def optimize_hyperparameters(
     log_bounds = [(np.log(low), np.log(high)) for low, high in linear_bounds]
 
     # generate starting points
-    starting_points = _generate_starting_points(
+    starting_points = generate_starting_points(
         initial_log_theta,
         log_bounds,
         n_restarts,
@@ -237,7 +201,7 @@ def optimize_hyperparameters(
         gp._fit_without_optimization()
         return
 
-    screening_results.sort(key=lambda x: x[0])
+    screening_results.sort(key=itemgetter(0))
     n_to_refine = min(N_REFINE, len(screening_results))
     top_candidates = [theta for _, theta in screening_results[:n_to_refine]]
 

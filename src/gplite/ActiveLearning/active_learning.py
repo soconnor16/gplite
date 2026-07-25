@@ -182,8 +182,6 @@ class ActiveLearner:
             initial_indices,
         )
 
-        return
-
     def select_next_point(
         self,
         selection_function: Callable,
@@ -346,6 +344,7 @@ class ActiveLearner:
 
         # default stop reason
         stop_reason: str = "Max points reached"
+        iteration = 0
 
         for iteration in range(max_points):
             should_optimize = (

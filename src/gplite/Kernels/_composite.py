@@ -140,6 +140,10 @@ class CompositeKernel(Kernel):
                 optimization loops where skipping the small overhead from
                 validation saves a lot of time. If _validate is false, it is
                 assumed you know what you are doing. Defaults to True.
+
+        Raises:
+            ValidationError: If _validate is true and invalid parameter values
+                are passed.
         """
         if _validate:
             if not hasattr(params, "__getitem__") and not isinstance(
@@ -192,14 +196,16 @@ class CompositeKernel(Kernel):
         ]
 
         if isinstance(self, AdditiveKernel):
-            combined_parts = " + ".join(parts)
+            combined_parts = "+".join(parts)
         elif isinstance(self, ProductKernel):
-            combined_parts = " * ".join(parts)
+            combined_parts = "*".join(parts)
         else:
             err_msg = "Error: Unknown composite kernel type"
             raise NotImplementedError(err_msg)
 
-        return f"( {alpha:.15e} * ( {combined_parts} ) )"
+        if alpha == 1.0:
+            return f"({combined_parts})"
+        return f"{alpha:.15e}*({combined_parts})"
 
     def _validate_anisotropic_hyperparameter_shape(self, x: Arrf64) -> None:
         """Validates anisotropic hyperparameter shapes for all child kernels.

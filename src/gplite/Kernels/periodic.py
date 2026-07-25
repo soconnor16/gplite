@@ -196,7 +196,11 @@ class PeriodicKernel(Kernel):
         # calculate the exponent dimension-by-dimension to avoid 3D allocations
         for dim in range(n_features):
             p_d = self.period[0] if self.isotropic else self.period[dim]
-            l_d = self.length_scale[0] if self.isotropic else self.length_scale[dim]
+            l_d = (
+                self.length_scale[0]
+                if self.isotropic
+                else self.length_scale[dim]
+            )
 
             # compute 1D absolute distance: shape (N, M)
             dist_d = np.abs(x1[:, dim : dim + 1] - x2[:, dim : dim + 1].T)
@@ -252,7 +256,11 @@ class PeriodicKernel(Kernel):
 
         for dim in range(n_features):
             p_d = self.period[0] if self.isotropic else self.period[dim]
-            l_d = self.length_scale[0] if self.isotropic else self.length_scale[dim]
+            l_d = (
+                self.length_scale[0]
+                if self.isotropic
+                else self.length_scale[dim]
+            )
 
             # compute 1D absolute distance (N, M)
             dist_d = np.abs(x1[:, dim : dim + 1] - x2[:, dim : dim + 1].T)
@@ -266,7 +274,9 @@ class PeriodicKernel(Kernel):
 
             # compute partial derivatives (before multiplying by K)
             d_ls = 4.0 * sin_squared / (l_d**3)
-            d_p = (4.0 * np.pi * dist_d * sin_val * cos_val) / ((l_d**2) * (p_d**2))
+            d_p = (4.0 * np.pi * dist_d * sin_val * cos_val) / (
+                (l_d**2) * (p_d**2)
+            )
 
             if self.isotropic:
                 grad_ls[:, :, 0] += d_ls
@@ -333,8 +343,8 @@ class PeriodicKernel(Kernel):
             self.length_scale = params[:1]
             self.period = params[1:]
         else:
-            self.length_scale, self.period = distribute_anisotropic_hyperparameters(
-                params, 2
+            self.length_scale, self.period = (
+                distribute_anisotropic_hyperparameters(params, 2)
             )
 
     def _to_str(
@@ -379,9 +389,12 @@ class PeriodicKernel(Kernel):
             term = f"{amp:.15e}*sin({inner})^2"
             difference_parts.append(term)
 
-        exponent_sum = "+".join(difference_parts)
+        full_dist_str = "+".join(difference_parts)
 
-        return f"{alpha:.15e}*exp({exponent_sum})"
+        exp_str = f"exp({full_dist_str})"
+        if alpha == 1.0:
+            return exp_str
+        return f"{alpha:.15e}*{exp_str}"
 
     def _compute_diag(self, x: Arrf64) -> Arrf64:
         """Computes the diagonal of the kernel matrix K(x, x).

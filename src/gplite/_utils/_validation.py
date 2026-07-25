@@ -203,7 +203,7 @@ def validate_anisotropic_hyperparameter_shape(
         err_msg = (
             "Error: 1 or more anisotropic hyperparameters have incorrect"
             " shape. Hyperparameter length should be the same as the number"
-            " of data features."
+            " of data features. "
             f"Length: {param.size} Number of features: {x1.shape[1]}."
         )
 
@@ -288,7 +288,7 @@ def validate_set_params(
             "Warning: New hyperparameters have a different length than the "
             "previous kernel hyperparameters. Ensure this is purposeful."
         )
-        warnings.warn(warning, stacklevel=1)
+        warnings.warn(warning, stacklevel=2)
 
     return params
 

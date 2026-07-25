@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gplite._utils._errors import ValidationError
 from gplite.GaussianProcess.gaussian_process import GaussianProcess
 from gplite.Kernels.matern import MaternKernel
@@ -20,19 +21,19 @@ def _sine_data(n: int = 20) -> tuple[np.ndarray, np.ndarray]:
 
 
 class TestGPInit:
-    def test_valid_kernel_accepted(self):
+    def test_valid_kernel_accepted(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         assert gp.kernel is not None
 
-    def test_invalid_kernel_raises(self):
+    def test_invalid_kernel_raises(self) -> None:
         with pytest.raises(ValidationError, match="kernel"):
             GaussianProcess("not_a_kernel")
 
-    def test_unfitted_alpha_is_empty(self):
+    def test_unfitted_alpha_is_empty(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         assert gp.alpha.size == 0
 
-    def test_unfitted_x_train_is_empty(self):
+    def test_unfitted_x_train_is_empty(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         assert gp.x_train.size == 0
 
@@ -43,40 +44,44 @@ class TestGPInit:
 
 
 class TestGPFitBasic:
-    def test_fit_sets_x_train(self):
+    def test_fit_sets_x_train(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x, y = _sine_data(20)
         gp.fit(x, y)
         assert gp.x_train.size > 0
 
-    def test_fit_sets_alpha(self):
+    def test_fit_sets_alpha(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x, y = _sine_data(20)
         gp.fit(x, y)
         assert gp.alpha.size > 0
         assert gp.alpha.shape == (20,)
 
-    def test_fit_sets_y_train(self):
+    def test_fit_sets_y_train(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x, y = _sine_data(20)
         gp.fit(x, y)
         assert gp.y_train.size > 0
 
-    def test_fit_stores_standardized_x(self):
+    def test_fit_stores_standardized_x(self) -> None:
         """With standardize_inputs=True, x_train should have zero mean."""
-        gp = GaussianProcess(RBFKernel(length_scale=1.0), standardize_inputs=True)
+        gp = GaussianProcess(
+            RBFKernel(length_scale=1.0), standardize_inputs=True
+        )
         x, y = _sine_data(20)
         gp.fit(x, y)
         np.testing.assert_allclose(gp.x_train.mean(), 0.0, atol=1e-10)
 
-    def test_fit_without_standardization(self):
+    def test_fit_without_standardization(self) -> None:
         """With standardize_inputs=False, x_train should equal the raw input."""
-        gp = GaussianProcess(RBFKernel(length_scale=1.0), standardize_inputs=False)
+        gp = GaussianProcess(
+            RBFKernel(length_scale=1.0), standardize_inputs=False
+        )
         x, y = _sine_data(20)
         gp.fit(x, y)
         np.testing.assert_allclose(gp.x_train, x, atol=1e-12)
 
-    def test_fit_1d_list_input(self):
+    def test_fit_1d_list_input(self) -> None:
         """Python lists should be accepted as inputs."""
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x = [[0.0], [0.5], [1.0], [1.5], [2.0]]
@@ -84,7 +89,7 @@ class TestGPFitBasic:
         gp.fit(x, y)
         assert gp.alpha.size == 5
 
-    def test_fit_2d_input(self):
+    def test_fit_2d_input(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         rng = np.random.default_rng(0)
         x = rng.standard_normal((15, 3))
@@ -99,30 +104,32 @@ class TestGPFitBasic:
 
 
 class TestGPFitValidation:
-    def test_shape_mismatch_raises(self):
+    def test_shape_mismatch_raises(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x = np.ones((10, 2))
         y = np.ones(8)  # wrong length
         with pytest.raises(ValidationError, match="samples"):
             gp.fit(x, y)
 
-    def test_nan_in_x_raises(self):
+    def test_nan_in_x_raises(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x = np.array([[1.0], [np.nan]])
         y = np.array([1.0, 2.0])
         with pytest.raises(ValidationError):
             gp.fit(x, y)
 
-    def test_nan_in_y_raises(self):
+    def test_nan_in_y_raises(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x = np.array([[1.0], [2.0]])
         y = np.array([1.0, np.nan])
         with pytest.raises(ValidationError):
             gp.fit(x, y)
 
-    def test_anisotropic_dimension_mismatch_raises(self):
+    def test_anisotropic_dimension_mismatch_raises(self) -> None:
         """Anisotropic kernel with 2 scales should reject 3-D input."""
-        gp = GaussianProcess(RBFKernel(length_scale=[1.0, 2.0], isotropic=False))
+        gp = GaussianProcess(
+            RBFKernel(length_scale=[1.0, 2.0], isotropic=False)
+        )
         x = np.ones((10, 3))
         y = np.ones(10)
         with pytest.raises(ValidationError):
@@ -135,7 +142,7 @@ class TestGPFitValidation:
 
 
 class TestGPFitRefit:
-    def test_refit_with_new_data_updates_alpha(self):
+    def test_refit_with_new_data_updates_alpha(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x1, y1 = _sine_data(10)
         gp.fit(x1, y1)
@@ -147,14 +154,15 @@ class TestGPFitRefit:
         assert gp.alpha.shape == (20,)
         assert not np.allclose(gp.alpha[:10], alpha_first)
 
-    def test_fit_different_kernels(self):
+    def test_fit_different_kernels(self) -> None:
         """GP should work with any valid kernel."""
         x, y = _sine_data(15)
         for kernel in [
             RBFKernel(length_scale=1.0),
             MaternKernel(length_scale=1.0, nu=1.5),
             MaternKernel(length_scale=1.0, nu=2.5),
-            RBFKernel(length_scale=1.0) + MaternKernel(length_scale=1.0, nu=2.5),
+            RBFKernel(length_scale=1.0)
+            + MaternKernel(length_scale=1.0, nu=2.5),
         ]:
             gp = GaussianProcess(kernel)
             gp.fit(x, y)
@@ -167,13 +175,13 @@ class TestGPFitRefit:
 
 
 class TestGPFitWithOptimization:
-    def test_fit_with_optimize_runs(self):
+    def test_fit_with_optimize_runs(self) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x, y = _sine_data(15)
         gp.fit(x, y, optimize=True)
         assert gp.alpha.size == 15
 
-    def test_optimize_changes_hyperparameters(self):
+    def test_optimize_changes_hyperparameters(self) -> None:
         """After optimization the length scale should change."""
         initial_ls = 1.0
         gp = GaussianProcess(RBFKernel(length_scale=initial_ls))
