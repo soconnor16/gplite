@@ -113,3 +113,107 @@ def negative_log_marginal_likelihood(
     all_grads = np.concatenate([*kernel_grads, np.atleast_1d(grad_noise)])
 
     return n_lml, -all_grads
+
+
+def negative_log_pseudomarginal_likelihood(
+    gp: GaussianProcess,
+    return_gradient: bool = True,
+) -> float | tuple[float, Arrf64]:
+    """Computes negative log pseudomarginal likelihood (LPML) and its gradient.
+
+    Args:
+        gp: Fitted Gaussian Process model.
+        return_gradient: Whether to compute and return gradients. Defaults to
+            True.
+
+    Returns:
+        Negative LPML value, or tuple of (negative LPML, gradient
+        array) if return_gradient is True. Returns inf or (inf, zeros) if
+        Cholesky decomposition fails.
+    """
+    X, y = gp.x_train, gp.y_train
+
+    if return_gradient:
+        K, grads_raw = gp.kernel._compute_with_gradient(X, X)
+    else:
+        K = gp.kernel._compute(X, X)
+        grads_raw = []
+
+    # attempt to compute lower cholesky decomposition
+    try:
+        L, _ = compute_lower_cholesky_decomposition(
+            K,
+            gp._noise,
+            max_attempts=10,
+        )
+    except ValueError:
+        val = np.inf
+        n_params = len(gp.kernel.get_params()) + 1
+        return (val, np.zeros(n_params)) if return_gradient else val
+
+    n = K.shape[0]
+
+    # compute full inverse covariance and weights
+    K_inv = linalg.cho_solve(
+        (L, True),
+        np.eye(n, dtype=K.dtype),
+        check_finite=False,
+    )
+    alpha_vec = linalg.cho_solve((L, True), y, check_finite=False)
+    alpha_vec = alpha_vec.ravel()
+
+    v = np.diag(K_inv)
+
+    # negative LPML value
+    n_lpml = (
+        0.5 * n * np.log(2 * np.pi)
+        - 0.5 * np.sum(np.log(v))
+        + 0.5 * np.sum((alpha_vec**2) / v)
+    )
+
+    if not return_gradient:
+        return n_lpml
+
+    kernel_grads = []
+
+    # gradient computation for kernel hyperparameters
+    for g in grads_raw:
+        if g.ndim == 2:
+            M_j = K_inv @ g
+            dv_j = -np.sum(M_j * K_inv, axis=1)
+            dalpha_j = -M_j @ alpha_vec
+
+            df_j = (
+                0.5 * (1 + (alpha_vec**2) / v) * dv_j - alpha_vec * dalpha_j
+            ) / v
+
+            grad_val = -np.sum(df_j)
+            kernel_grads.append(np.atleast_1d(grad_val))
+
+        else:
+            d = g.shape[2]
+            grad_vals = np.zeros(d)
+            for k in range(d):
+                M_jk = K_inv @ g[:, :, k]
+                dv_jk = -np.sum(M_jk * K_inv, axis=1)
+                dalpha_jk = -M_jk @ alpha_vec
+
+                df_jk = (
+                    0.5 * (1 + (alpha_vec**2) / v) * dv_jk
+                    - alpha_vec * dalpha_jk
+                ) / v
+
+                grad_vals[k] = -np.sum(df_jk)
+            kernel_grads.append(grad_vals)
+
+    # noise gradient (dK/d(noise) = I)
+    dv_noise = -np.sum(K_inv * K_inv, axis=1)
+    dalpha_noise = -K_inv @ alpha_vec
+    df_noise = (
+        0.5 * (1 + (alpha_vec**2) / v) * dv_noise - alpha_vec * dalpha_noise
+    ) / v
+    grad_noise = -np.sum(df_noise)
+
+    all_grads = np.concatenate([*kernel_grads, np.atleast_1d(grad_noise)])
+
+    return n_lpml, all_grads

@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from gplite._utils._errors import ValidationError
+from gplite._utils._optimization import generate_starting_points
 from gplite.GaussianProcess.gaussian_process import GaussianProcess
 from gplite.Kernels.matern import MaternKernel
 from gplite.Kernels.rbf import RBFKernel
@@ -175,21 +176,49 @@ class TestGPFitRefit:
 
 
 class TestGPFitWithOptimization:
-    def test_fit_with_optimize_runs(self) -> None:
+    @pytest.mark.parametrize("objective", ["lml", "lpml"])
+    def test_fit_with_optimize_runs(self, objective: str) -> None:
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         x, y = _sine_data(15)
-        gp.fit(x, y, optimize=True)
+        gp.fit(x, y, optimize=True, objective=objective)
         assert gp.alpha.size == 15
 
-    def test_optimize_changes_hyperparameters(self) -> None:
+    @pytest.mark.parametrize("objective", ["lml", "lpml"])
+    def test_optimize_changes_hyperparameters(self, objective: str) -> None:
         """After optimization the length scale should change."""
         initial_ls = 1.0
         gp = GaussianProcess(RBFKernel(length_scale=initial_ls))
         x, y = _sine_data(20)
-        gp.fit(x, y, optimize=True)
+        gp.fit(x, y, optimize=True, objective=objective)
         # optimized length scale should differ from the naive default
         optimized_ls = float(gp.kernel.get_params()[0])
         # they might be close by chance, but almost certainly not identical
         # just check optimized is a positive finite number
         assert optimized_ls > 0
         assert np.isfinite(optimized_ls)
+
+    def test_generate_starting_points_reproducible(self) -> None:
+        initial_log_theta = np.array([0.0, -1.0])
+        log_bounds = [(-2.0, 2.0), (-3.0, 1.0)]
+        pts1 = generate_starting_points(
+            initial_log_theta, log_bounds, n_restarts=5, random_seed=1
+        )
+        pts2 = generate_starting_points(
+            initial_log_theta, log_bounds, n_restarts=5, random_seed=1
+        )
+        assert len(pts1) == len(pts2) == 6
+        for p1, p2 in zip(pts1, pts2, strict=True):
+            np.testing.assert_array_equal(p1, p2)
+
+    def test_fit_optimization_reproducible_with_seed(self) -> None:
+        x, y = _sine_data(20)
+        gp1 = GaussianProcess(RBFKernel(length_scale=1.0), random_seed=2)
+        gp1.fit(x, y, optimize=True)
+
+        gp2 = GaussianProcess(RBFKernel(length_scale=1.0), random_seed=2)
+        gp2.fit(x, y, optimize=True)
+
+        np.testing.assert_allclose(
+            gp1.kernel.get_params(), gp2.kernel.get_params()
+        )
+        assert gp1._noise == gp2._noise

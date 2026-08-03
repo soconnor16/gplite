@@ -5,7 +5,7 @@ that controls the differentiability of the resulting functions:
 
     - ν = 3/2: Once differentiable
     - ν = 5/2: Twice differentiable
-    - ν → ∞: Infinitely differentiable, equivalent to the RBF kernel
+    - ν  ∞: Infinitely differentiable, equivalent to the RBF kernel
 
 For ν = 3/2:
 

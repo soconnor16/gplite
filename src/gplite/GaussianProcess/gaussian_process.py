@@ -84,7 +84,12 @@ class GaussianProcess:
         alpha: Weights computed during fitting for predictions.
     """
 
-    def __init__(self, kernel: Kernel, standardize_inputs: bool = True) -> None:
+    def __init__(
+        self,
+        kernel: Kernel,
+        standardize_inputs: bool = True,
+        random_seed: int | None = None,
+    ) -> None:
         """Initializes a Gaussian Process model with the specified kernel.
 
         Args:
@@ -92,6 +97,8 @@ class GaussianProcess:
                 the GPR model.
             standardize_inputs: Whether to standardize input features to zero
                 mean and unit variance. Defaults to True.
+            random_seed: Seed for random number generation during hyperparameter
+                optimization restarts. Defaults to None.
 
         Raises:
             ValidationError: If kernel is not a valid Kernel subclass.
@@ -104,6 +111,7 @@ class GaussianProcess:
 
         self.kernel = kernel
         self._standardize_inputs = standardize_inputs
+        self.random_seed = random_seed
 
         # simulates gaussian noise in data, optimized with kernel
         # hyperparameters helps stabilize fitting with numerically unstable data
@@ -138,8 +146,8 @@ class GaussianProcess:
 
         Args:
             objective: The objective function to minimize. Options include 'lml'
-                (log-marginal-likelihood) or a custom loss function. Defaults to
-                'lml'.
+                (log-marginal-likelihood), 'lpml' (log pseudomarginal
+                likelihood), or a custom loss function. Defaults to 'lml'.
             num_restarts: Number of random restarts to avoid local minima.
                 Defaults to 10.
         """
@@ -181,7 +189,7 @@ class GaussianProcess:
             optimize: Whether to optimize hyperparameters before fitting.
                 Defaults to False.
             objective: Objective function for optimization if optimize is True.
-                Defaults to 'lml'.
+                Options include 'lml' and 'lpml'. Defaults to 'lml'.
 
         Raises:
             ValidationError: If input and target arrays have incompatible shapes

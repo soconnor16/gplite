@@ -107,6 +107,7 @@ class ActiveLearner:
         x_full: NumericArray,
         y_full: NumericArray,
         standardize_inputs: bool = True,
+        random_seed: int | None = None,
     ) -> None:
         """Initializes an active learner with the given kernel and data pool.
 
@@ -116,6 +117,8 @@ class ActiveLearner:
             y_full: Full dataset target values of shape (n,).
             standardize_inputs: Whether to standardize input features to zero
                 mean and unit variance. Defaults to True.
+            random_seed: Seed for random number generation in random selection
+                and hyperparameter optimization. Defaults to None.
 
         Raises:
             ValidationError:
@@ -131,8 +134,14 @@ class ActiveLearner:
         )
 
         self.kernel = kernel
+        self.random_seed = random_seed
+        self._rng = np.random.default_rng(random_seed)
 
-        self.gp = GaussianProcess(self.kernel, standardize_inputs)
+        self.gp = GaussianProcess(
+            self.kernel,
+            standardize_inputs,
+            random_seed=random_seed,
+        )
 
         # initialize training sets and pool of points that remain
         # available to be picked
