@@ -2,6 +2,16 @@
 
 Notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-08-03
+
+### Added
+
+- **LPML Optimization** Added Log Pseudomarginal Likelihood (LPML) as a
+new built-in optimization objective for Gaussian Processes.
+- **Controllable Determinism** Added `random_seed` parameter to `GaussianProcess`
+and `ActiveLearner` for reproducible hyperparameter optimization restarts and
+active learning random point selection.
+
 ## [3.1.7] - 2026-07-25
 
 ### Changed

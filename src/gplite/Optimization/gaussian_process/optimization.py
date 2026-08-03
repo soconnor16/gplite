@@ -27,6 +27,7 @@ from gplite._utils._errors import ValidationError
 from gplite._utils._optimization import generate_starting_points
 from gplite.Optimization.gaussian_process.loss_functions import (
     negative_log_marginal_likelihood,
+    negative_log_pseudomarginal_likelihood,
 )
 
 if TYPE_CHECKING:
@@ -42,12 +43,16 @@ if TYPE_CHECKING:
 LOSS_FUNCTIONS: dict[str, Callable] = {
     "lml": negative_log_marginal_likelihood,
     "log_marginal_likelihood": negative_log_marginal_likelihood,
+    "lpml": negative_log_pseudomarginal_likelihood,
+    "log_pseudomarginal_likelihood": negative_log_pseudomarginal_likelihood,
 }
 
 # whether the loss function defined has gradient implementation for optimization
 LOSS_FUNCTION_HAS_GRAD: dict[str, bool] = {
     "lml": True,
     "log_marginal_likelihood": True,
+    "lpml": True,
+    "log_pseudomarginal_likelihood": True,
 }
 
 
@@ -183,6 +188,7 @@ def optimize_hyperparameters(
         initial_log_theta,
         log_bounds,
         n_restarts,
+        random_seed=gp.random_seed,
     )
 
     # phase 1: Global Screening

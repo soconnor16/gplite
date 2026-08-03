@@ -19,6 +19,7 @@ def generate_starting_points(
     initial_log_theta: Arrf64,
     log_bounds: list[tuple[float, float]],
     n_restarts: int,
+    random_seed: int | None = None,
 ) -> list[Arrf64]:
     """Generates starting points for optimization with Latin Hypercube Sampling.
 
@@ -32,6 +33,7 @@ def generate_starting_points(
         initial_log_theta: Current hyperparameter values in natural log-space.
         log_bounds: Natural log-space bounds for each hyperparameter.
         n_restarts: Number of random starting points to generate.
+        random_seed: Random seed for Latin Hypercube Sampling. Defaults to None.
 
     Returns:
         List of starting points including initial_theta.
@@ -39,7 +41,7 @@ def generate_starting_points(
     starting_points = [initial_log_theta]
 
     if n_restarts > 0:
-        sampler = qmc.LatinHypercube(d=len(log_bounds))
+        sampler = qmc.LatinHypercube(d=len(log_bounds), seed=random_seed)
         samples = sampler.random(n_restarts)
 
         for sample in samples:

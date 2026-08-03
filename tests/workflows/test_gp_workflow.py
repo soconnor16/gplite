@@ -1,6 +1,7 @@
 """End-to-end workflow tests for GaussianProcess."""
 
 import numpy as np
+import pytest
 
 from gplite.GaussianProcess.gaussian_process import GaussianProcess
 from gplite.Kernels.constant import ConstantKernel
@@ -8,7 +9,7 @@ from gplite.Kernels.matern import MaternKernel
 from gplite.Kernels.rbf import RBFKernel
 
 # ===========================================================================
-# Full workflow: fit → predict on known functions
+# Full workflow: fit -> predict on known functions
 # ===========================================================================
 
 
@@ -80,7 +81,7 @@ class TestGPWorkflowQuadratic:
 
 
 # ===========================================================================
-# Full workflow: fit → optimize → predict
+# Full workflow: fit -> optimize -> predict
 # ===========================================================================
 
 
@@ -90,20 +91,22 @@ class TestGPWorkflowWithOptimization:
     def _rmse(self, y_pred, y_true):
         return float(np.sqrt(np.mean((y_pred - y_true) ** 2)))
 
-    def test_optimized_gp_rmse_sine(self) -> None:
+    @pytest.mark.parametrize("objective", ["lml", "lpml"])
+    def test_optimized_gp_rmse_sine(self, objective: str) -> None:
         x = np.linspace(0, 2 * np.pi, 25).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
-        gp.fit(x, y, optimize=True)
+        gp.fit(x, y, optimize=True, objective=objective)
         y_pred = gp.predict(x)
         assert self._rmse(y_pred, y) < 0.05
 
-    def test_optimize_hyperparameters_explicitly(self) -> None:
+    @pytest.mark.parametrize("objective", ["lml", "lpml"])
+    def test_optimize_hyperparameters_explicitly(self, objective: str) -> None:
         x = np.linspace(0, 2 * np.pi, 20).reshape(-1, 1)
         y = np.sin(x).ravel()
         gp = GaussianProcess(RBFKernel(length_scale=1.0))
         gp.fit(x, y)
-        gp.optimize_hyperparameters(objective="lml", num_restarts=5)
+        gp.optimize_hyperparameters(objective=objective, num_restarts=5)
         # just verify it didn't crash and the model is still usable
         y_pred = gp.predict(x)
         assert y_pred.shape == (20,)
@@ -111,7 +114,7 @@ class TestGPWorkflowWithOptimization:
 
 
 # ===========================================================================
-# Full workflow: fit → predict → save → load → predict
+# Full workflow: fit -> predict -> save -> load -> predict
 # ===========================================================================
 
 

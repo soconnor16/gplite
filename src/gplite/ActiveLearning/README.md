@@ -131,7 +131,7 @@ underlying Gaussian Process model.
 ### 1. Initialization
 
 ```python
-ActiveLearner(kernel, x_full, y_full, standardize_inputs=True)
+ActiveLearner(kernel, x_full, y_full, standardize_inputs=True, random_seed=None)
 ```
 
 Prepares the learner with the complete candidate pool and the chosen covariance
@@ -142,6 +142,8 @@ function.
 * **`y_full`** (*NumPy Array*): The complete vector of candidate target values.
 * **`standardize_inputs`** (*Boolean*): Whether to standardize input values to
 a mean of zero and unit variance.
+* **`random_seed`** (*int, optional*): Seed for reproducible random number generation
+in random selection and hyperparameter optimization restarts. Default is `None`.
 
 ### 2. Core Methods
 

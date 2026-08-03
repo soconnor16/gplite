@@ -41,9 +41,17 @@ Likelihood (LML).
 
 LML is the go-to method for optimizing GP models, balancing the data fit
 against a complexity penalty to prevent overfitting without requiring a
-separate validation set or regularization term. The optimization uses a Two-Phase
-hybrid approach (Global Screening -> Local Refinement) to efficiently navigate
-the hyperparameter space and avoid poor local minima.
+separate validation set or regularization term.
+
+Alternatively, you can use Log Pseudomarginal Likelihood (`"lpml"`
+or `"log_pseudomarginal_likelihood"`). LPML directly optimizes the model for
+predictive generalization (leave-one-out cross-validation) rather than just data
+fit. It is generally more robust to model misspecification, but comes with a
+higher computational cost than traditional LML targets. It is recommended
+for small datasets or isotropic kernels.
+
+The optimization uses a Two-Phase hybrid approach (Global Screening -> Local Refinement)
+to efficiently navigate the hyperparameter space and avoid poor local minima.
 
 ### Custom Plugins
 
@@ -93,7 +101,7 @@ y_preds = gp.predict(X_test)
 ### 1. Initialization
 
 ```python
-GaussianProcess(kernel, standardize_inputs=True)
+GaussianProcess(kernel, standardize_inputs=True, random_seed=None)
 ```
 
 Prepares the GP model with the specified covariance function.
@@ -102,6 +110,8 @@ Prepares the GP model with the specified covariance function.
 * **`standardize_inputs`** (*bool*): Whether to automatically standardize input
 features to zero mean and unit variance. Target values are always standardized
 internally. Default is `True`.
+* **`random_seed`** (*int, optional*): Seed for reproducible random number generation
+during hyperparameter optimization restarts. Default is `None`.
 
 ### 2. Core Methods
 
@@ -118,7 +128,7 @@ hyperparameters.
 * **`y`** (*NumPy Array*): Target values.
 * **`optimize`** (*bool*): Whether to run hyperparameter optimization.
 * **`objective`** (*str or Callable*): The loss function to minimize if
-`optimize=True`. Pass `"lml"` or a custom function. Defaults to `"lml"`.
+`optimize=True`. Pass `"lml"`, `"lpml"`, or a custom function. Defaults to `"lml"`.
 
 #### `.predict(...)`
 

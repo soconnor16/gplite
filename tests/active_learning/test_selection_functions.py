@@ -89,6 +89,19 @@ class TestRandomSelection:
         for idx in indices:
             assert idx in fitted_learner.remaining_indices
 
+    def test_random_seed_reproducibility(self) -> None:
+        x = np.linspace(0, 2 * np.pi, 50).reshape(-1, 1)
+        y = np.sin(x).ravel()
+        learner1 = ActiveLearner(RBFKernel(1.0), x, y, random_seed=0)
+        learner2 = ActiveLearner(RBFKernel(1.0), x, y, random_seed=0)
+        indices1 = learner1.select_next_point(
+            selection_function=random_selection, n_points=5
+        )
+        indices2 = learner2.select_next_point(
+            selection_function=random_selection, n_points=5
+        )
+        np.testing.assert_array_equal(indices1, indices2)
+
 
 # ===========================================================================
 # max_uncertainty
@@ -113,7 +126,9 @@ class TestMaxUncertainty:
         indices = max_uncertainty(empty_pool_learner, n_points=1)
         assert len(indices) == 0
 
-    def test_selected_point_has_highest_uncertainty(self, fitted_learner) -> None:
+    def test_selected_point_has_highest_uncertainty(
+        self, fitted_learner
+    ) -> None:
         """The selected point should have the highest std among remaining pool."""
         _, stds = fitted_learner.gp.predict(
             fitted_learner.x_full[fitted_learner.remaining_indices],

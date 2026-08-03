@@ -41,7 +41,9 @@ def random_selection(learner: ActiveLearner, n_points: int = 1) -> Arri64:
         return np.array([], dtype=np.int64)
 
     num_selection_points = min(n_points, num_points_in_pool)
-    rng = np.random.default_rng()
+    rng = getattr(learner, "_rng", None)
+    if rng is None:
+        rng = np.random.default_rng()
     selected_indices = rng.choice(
         num_points_in_pool,
         num_selection_points,
